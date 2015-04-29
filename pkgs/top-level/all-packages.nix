@@ -650,6 +650,13 @@ let
 
   bootchart = callPackage ../tools/system/bootchart { };
 
+  boxfs = callPackage ../tools/filesystems/boxfs { };
+
+  brasero = callPackage ../tools/cd-dvd/brasero { };
+
+  brltty = callPackage ../tools/misc/brltty {
+    alsaSupport = (!stdenv.isDarwin);
+  };
   bro = callPackage ../applications/networking/ids/bro { };
 
   bsod = callPackage ../misc/emulators/bsod { };
