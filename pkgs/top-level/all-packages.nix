@@ -998,6 +998,7 @@ let
 
   clementine = callPackage ../applications/audio/clementine {
     boost = boost156;
+    gst_plugins = [ gst_plugins_base gst_plugins_good gst_plugins_ugly gst_ffmpeg ];
   };
 
   ciopfs = callPackage ../tools/filesystems/ciopfs { };
@@ -1556,6 +1557,11 @@ let
 
   grails = callPackage ../development/web/grails { jdk = null; };
 
+  gprof2dot = callPackage ../development/tools/profiling/gprof2dot {
+    # Using pypy provides significant performance improvements (~2x)
+    pythonPackages = pypyPackages;
+  };
+
   graphviz = callPackage ../tools/graphics/graphviz { };
 
   graphviz-nox = callPackage ../tools/graphics/graphviz {
@@ -1768,6 +1774,7 @@ let
 
   isl = callPackage ../development/libraries/isl { };
   isl_0_12 = callPackage ../development/libraries/isl/0.12.2.nix { };
+  isl_0_14 = callPackage ../development/libraries/isl/0.14.1.nix { };
 
   isync = callPackage ../tools/networking/isync { };
 
@@ -3612,6 +3619,25 @@ let
       if crossSystem != null && crossSystem.config == "i586-pc-gnu"
       then gnu.libpthreadCross
       else null;
+  }));
+
+  gcc51 = lowPrio (wrapCC (callPackage ../development/compilers/gcc/5.1 {
+    inherit noSysDirs;
+
+    # PGO seems to speed up compilation by gcc by ~10%, see #445 discussion
+    profiledCompiler = with stdenv; (!isDarwin && (isi686 || isx86_64));
+
+    # When building `gcc.crossDrv' (a "Canadian cross", with host == target
+    # and host != build), `cross' must be null but the cross-libc must still
+    # be passed.
+    cross = null;
+    libcCross = if crossSystem != null then libcCross else null;
+    libpthreadCross =
+      if crossSystem != null && crossSystem.config == "i586-pc-gnu"
+      then gnu.libpthreadCross
+      else null;
+
+    isl = isl_0_14;
   }));
 
   gfortran = gfortran48;
