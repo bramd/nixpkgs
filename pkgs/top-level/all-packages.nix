@@ -7659,6 +7659,8 @@ let
 
   ghostOne = callPackage ../servers/games/ghost-one { };
 
+  heritrix = callPackage ../servers/http/heritrix { };
+
   ircdHybrid = callPackage ../servers/irc/ircd-hybrid { };
 
   jboss = callPackage ../servers/http/jboss { };
