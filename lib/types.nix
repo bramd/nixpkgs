@@ -93,8 +93,10 @@ rec {
     # derivation is a reserved keyword.
     package = mkOptionType {
       name = "derivation";
-      check = isDerivation;
-      merge = mergeOneOption;
+      check = x: isDerivation x || isStorePath x;
+      merge = loc: defs:
+        let res = mergeOneOption loc defs;
+        in if isDerivation res then res else toDerivation res;
     };
 
     path = mkOptionType {
