@@ -39,28 +39,24 @@
 }:
 let
   version = "0.1.0";
-  ghcArch = if pkgs.stdenv.system == "i686-linux"
-    then "i386-linux"
-    else pkgs.stdenv.system;
-  libDir = "share/ghcjs/${ghcArch}-${version}-${ghc.version}/ghcjs";
   ghcjsBoot = fetchgit {
     url = git://github.com/ghcjs/ghcjs-boot.git;
-    rev = "ab8765edcb507b8b810e3c324fd5bd5af2b69d8f"; # 7.10 branch
-    sha256 = "63b69a1d131cf3c7088e0f28d14750c81361dcc276fa113ad80dcccf73df5343";
+    rev = "d435c60b62d24b7a4117493f7aaecbfa09968fe6"; # 7.10 branch
+    sha256 = "07vhmjz21ccnqccms003550xacmwb08pjdkhnjcwcbl2603v4na1";
     fetchSubmodules = true;
   };
   shims = fetchgit {
     url = git://github.com/ghcjs/shims.git;
-    rev = "6ada4bf1a084d1b80b993303d35ed863d219b031"; # master branch
-    sha256 = "0dhfnjj3rxdbb2m1pbnjc2yp4xcgsfdrsinljgdmg0hpqkafp4vc";
+    rev = "0b670ca27fff3f0bad515c37e56ccb8b4d6758fb"; # master branch
+    sha256 = "19zq79f2y59lw7c8m100awh3rcra5yhbsvpb5xmp3mq6grac7h08";
   };
 in mkDerivation (rec {
   pname = "ghcjs";
   inherit version;
   src = fetchgit {
     url = git://github.com/ghcjs/ghcjs.git;
-    rev = "64c3768186d73d8c185b42d4d14dfb943919ee56"; # master branch
-    sha256 = "1w7rwcqzihg6h2j0khar7kjn8vdjg9ngjk6bndpiqcgf3kwfmvhf";
+    rev = "39c1cb6d5d2551b306a7957a0e7f682f4a048490"; # master branch
+    sha256 = "1v2hpmhdssgf1jmchiwkvp5j8j6rw3k0hpkf326vb8l1b0kbmibr";
   };
   isLibrary = true;
   isExecutable = true;
@@ -84,14 +80,19 @@ in mkDerivation (rec {
   ];
   patches = [ ./ghcjs.patch ];
   postPatch = ''
-    substituteInPlace Setup.hs --replace "/usr/bin/env" "${coreutils}/bin/env"
-    substituteInPlace src/Compiler/Info.hs --replace "@PREFIX@" "$out"
+    substituteInPlace Setup.hs \
+      --replace "/usr/bin/env" "${coreutils}/bin/env"
+
+    substituteInPlace src/Compiler/Info.hs \
+      --replace "@PREFIX@" "$out"          \
+      --replace "@VERSION@" "${version}"
+
     substituteInPlace src-bin/Boot.hs \
       --replace "@PREFIX@" "$out"     \
       --replace "@CC@"     "${stdenv.cc}/bin/cc"
   '';
   preBuild = ''
-    local topDir=$out/${libDir}
+    local topDir=$out/lib/ghcjs-${version}
     mkdir -p $topDir
 
     cp -r ${ghcjsBoot} $topDir/ghcjs-boot
@@ -102,7 +103,7 @@ in mkDerivation (rec {
 
     # Make the patches be relative their corresponding package's directory.
     # See: https://github.com/ghcjs/ghcjs-boot/pull/12
-    for patch in $topDir/ghcjs-boot/patches/*.patch; do
+    for patch in "$topDir/ghcjs-boot/patches/"*.patch; do
       echo "fixing patch: $patch"
       sed -i -e 's@ \(a\|b\)/boot/[^/]\+@ \1@g' $patch
     done
@@ -116,9 +117,9 @@ in mkDerivation (rec {
         --with-gmp-libraries ${gmp}/lib
   '';
   passthru = {
-    inherit libDir;
     isGhcjs = true;
     nativeGhc = ghc;
+    inherit nodejs;
   };
 
   homepage = "https://github.com/ghcjs/ghcjs";

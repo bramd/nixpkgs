@@ -1,18 +1,18 @@
+# Please make sure to check if rustfmt still builds when updating nightly
+
 { stdenv, callPackage }:
-callPackage ./makeRustcDerivation.nix {
-  shortVersion = "1.0.0-dev";
+callPackage ./generic.nix {
+  shortVersion = "2015-09-05";
   isRelease = false;
-  # src rev for master on 2015/04/13
-  srcRev = "0cf99c3e06e84d20d68da649c888d63c72f33971";
-  srcSha = "0brnzsbxmidjnmvi36sz582k3kw6wk813y2y837zpmyxg9fjah0l";
-  snapshotHashLinux686 = "1ef82402ed16f5a6d2f87a9a62eaa83170e249ec";
-  snapshotHashLinux64 = "ef2154372e97a3cb687897d027fd51c8f2c5f349";
-  snapshotHashDarwin686 = "0310b1a970f2da7e61770fd14dbbbdca3b518234";
-  snapshotHashDarwin64 = "5f35d9c920b8083a7420ef8cf5b00d5ef3085dfa";
-  snapshotDate = "2015-03-27";
-  snapshotRev = "5520801";
-  patches = [
-    ./patches/head.patch
-  ] ++ stdenv.lib.optional stdenv.needsPax ./patches/grsec.patch;
+  # src rev for 2015-09-05's nightly channel
+  srcRev = "779b2a9847319106647dcad12fc6dc472bc0cf4d";
+  srcSha = "0m22lxpcjnwa68bpxhfvp07k52gyds8ykif2pf5r2x22lw28vbg3";
+  snapshotHashLinux686 = "e2553bf399cd134a08ef3511a0a6ab0d7a667216";
+  snapshotHashLinux64 = "7df8ba9dec63ec77b857066109d4b6250f3d222f";
+  snapshotHashDarwin686 = "29750870c82a0347f8b8b735a4e2e0da26f5098d";
+  snapshotHashDarwin64 = "c9f2c588238b4c6998190c3abeb33fd6164099a2";
+  snapshotDate = "2015-08-11";
+  snapshotRev = "1af31d4";
+  patches = stdenv.lib.optional stdenv.needsPax ./patches/grsec.patch;
 }
 

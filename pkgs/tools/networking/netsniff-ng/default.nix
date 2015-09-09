@@ -2,7 +2,7 @@
 , libnetfilter_conntrack, libnl, libpcap, libsodium, liburcu, ncurses, perl
 , pkgconfig, zlib }:
 
-let version = "v0.5.9-rc5"; in
+let version = "0.5.9-95-g186b116"; in
 stdenv.mkDerivation {
   name = "netsniff-ng-${version}";
 
@@ -10,8 +10,8 @@ stdenv.mkDerivation {
   src = fetchFromGitHub rec {
     repo = "netsniff-ng";
     owner = repo;
-    rev = "76f4acca4bef1658543a97475f1c1d83accc395c";
-    sha256 = "11k88lsdqy41j4xwyx3vq85zjj4n39hj828f1b6naq1ywyfcvmr5";
+    rev = "186b116bec11cb941ed91547c9f612b96c96341b";
+    sha256 = "06l3565aj4qz4ag7w5pmkfa80mnf8bln2q80hqm4bq8g7sr9z63n";
   };
 
   buildInputs = [ bison flex geoip geolite-legacy libcli libnet libnl
@@ -33,8 +33,8 @@ stdenv.mkDerivation {
   postInstall = ''
     ln -sv ${geolite-legacy}/share/GeoIP/GeoIP.dat		$out/etc/netsniff-ng/country4.dat
     ln -sv ${geolite-legacy}/share/GeoIP/GeoIPv6.dat		$out/etc/netsniff-ng/country6.dat
-    ln -sv ${geolite-legacy}/share/GeoIP/GeoLiteCity.dat	$out/etc/netsniff-ng/city4.dat
-    ln -sv ${geolite-legacy}/share/GeoIP/GeoLiteCityv6.dat	$out/etc/netsniff-ng/city6.dat
+    ln -sv ${geolite-legacy}/share/GeoIP/GeoIPCity.dat		$out/etc/netsniff-ng/city4.dat
+    ln -sv ${geolite-legacy}/share/GeoIP/GeoIPCityv6.dat	$out/etc/netsniff-ng/city6.dat
     ln -sv ${geolite-legacy}/share/GeoIP/GeoIPASNum.dat		$out/etc/netsniff-ng/asname4.dat
     ln -sv ${geolite-legacy}/share/GeoIP/GeoIPASNumv6.dat	$out/etc/netsniff-ng/asname6.dat
     rm -v $out/etc/netsniff-ng/geoip.conf # updating databases after installation is impossible
@@ -51,7 +51,7 @@ stdenv.mkDerivation {
       development and analysis, debugging, auditing or network reconnaissance.
     '';
     homepage = http://netsniff-ng.org/;
-    license = with licenses; gpl2;
+    license = licenses.gpl2;
     platforms = with platforms; linux;
     maintainers = with maintainers; [ nckx ];
   };

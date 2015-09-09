@@ -27,9 +27,14 @@ stdenv.mkDerivation {
     # one "<" and one "&" sign get mangled in the patch
     in "cat ${pp} | sed 's/&lt;/</;s/&amp;/\\&/' | patch -p1";
 
+  preConfigure = if stdenv.isCygwin then ''
+    sed -i gnu/fpending.h -e 's,include <stdio_ext.h>,,'
+  '' else null;
+
   meta = {
     homepage = http://www.gnu.org/software/cpio/;
     description = "A program to create or extract from cpio archives";
     platforms = stdenv.lib.platforms.all;
+    priority = 6; # resolves collision with gnutar's "libexec/rmt"
   };
 }

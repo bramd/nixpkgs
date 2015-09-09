@@ -1,10 +1,10 @@
 { callPackage, fetchurl, ... } @ args:
 
 callPackage ./generic.nix (args // rec {
-  version = "3.3.14";
+  version = "3.3.17";
 
   src = fetchurl {
     url = "ftp://ftp.gnutls.org/gcrypt/gnutls/v3.3/gnutls-${version}.tar.lz";
-    sha256 = "1117j71ng66syddw10yazrniqkd326hcigx2hfcw4s86rk0kqanv";
+    sha256 = "00zrwqvy054fymb6j04xfr583javfjxsid2rbmyk63qrbqzm61v7";
   };
 })

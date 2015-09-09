@@ -10,6 +10,8 @@ let lib = import ../../../lib; in lib.makeOverridable (
 , setupScript ? ./setup.sh
 
 , extraBuildInputs ? []
+, __stdenvImpureHostDeps ? []
+, __extraImpureHostDeps ? []
 }:
 
 let
@@ -19,11 +21,13 @@ let
   whitelist = config.whitelistedLicenses or [];
   blacklist = config.blacklistedLicenses or [];
 
+  ifDarwin = attrs: if system == "x86_64-darwin" then attrs else {};
+
   onlyLicenses = list:
     lib.lists.all (license:
       let l = lib.licenses.${license.shortName or "BROKEN"} or false; in
       if license == l then true else
-        throw ''‘${builtins.toJSON license}’ is not an attribute of lib.licenses''
+        throw ''‘${showLicense license}’ is not an attribute of lib.licenses''
     ) list;
 
   mutuallyExclusive = a: b:
@@ -68,6 +72,8 @@ let
     hasLicense attrs &&
     isUnfree (lib.lists.toList attrs.meta.license) &&
     !allowUnfreePredicate attrs;
+
+  showLicense = license: license.shortName or "unknown";
 
   defaultNativeBuildInputs = extraBuildInputs ++
     [ ../../build-support/setup-hooks/move-docs.sh
@@ -117,9 +123,9 @@ let
 
       licenseAllowed = attrs:
         if hasDeniedUnfreeLicense attrs && !(hasWhitelistedLicense attrs) then
-          throwEvalHelp "Unfree" "has an unfree license ‘${builtins.toJSON attrs.meta.license}’ which is not whitelisted"
+          throwEvalHelp "Unfree" "has an unfree license (‘${showLicense attrs.meta.license}’)"
         else if hasBlacklistedLicense attrs then
-          throwEvalHelp "blacklisted" "has the ‘${builtins.toJSON attrs.meta.license}’ license which is blacklisted"
+          throwEvalHelp "blacklisted" "has a blacklisted license (‘${showLicense attrs.meta.license}’)"
         else if !allowBroken && attrs.meta.broken or false then
           throwEvalHelp "Broken" "is marked as broken"
         else if !allowBroken && attrs.meta.platforms or null != null && !lib.lists.elem result.system attrs.meta.platforms then
@@ -130,8 +136,23 @@ let
       assert licenseAllowed attrs;
 
       lib.addPassthru (derivation (
-        (removeAttrs attrs ["meta" "passthru" "crossAttrs" "pos"])
-        //
+        (removeAttrs attrs
+          ["meta" "passthru" "crossAttrs" "pos"
+           "__impureHostDeps" "__propagatedImpureHostDeps"])
+        // (let
+          buildInputs = attrs.buildInputs or [];
+          nativeBuildInputs = attrs.nativeBuildInputs or [];
+          propagatedBuildInputs = attrs.propagatedBuildInputs or [];
+          propagatedNativeBuildInputs = attrs.propagatedNativeBuildInputs or [];
+          crossConfig = attrs.crossConfig or null;
+
+          __impureHostDeps = attrs.__impureHostDeps or [];
+          __propagatedImpureHostDeps = attrs.__propagatedImpureHostDeps or [];
+
+          # TODO: remove lib.unique once nix has a list canonicalization primitive
+          computedImpureHostDeps           = lib.unique (lib.concatMap (input: input.__propagatedImpureHostDeps or []) (extraBuildInputs ++ buildInputs ++ nativeBuildInputs));
+          computedPropagatedImpureHostDeps = lib.unique (lib.concatMap (input: input.__propagatedImpureHostDeps or []) (propagatedBuildInputs ++ propagatedNativeBuildInputs));
+        in
         {
           builder = attrs.realBuilder or shell;
           args = attrs.args or ["-e" (attrs.builder or ./default-builder.sh)];
@@ -147,7 +168,15 @@ let
           nativeBuildInputs = nativeBuildInputs ++ (if crossConfig == null then buildInputs else []);
           propagatedNativeBuildInputs = propagatedNativeBuildInputs ++
             (if crossConfig == null then propagatedBuildInputs else []);
-        })) (
+        } // ifDarwin {
+          __impureHostDeps = computedImpureHostDeps ++ computedPropagatedImpureHostDeps ++ __propagatedImpureHostDeps ++ __impureHostDeps ++ __extraImpureHostDeps ++ [
+            "/dev/zero"
+            "/dev/random"
+            "/dev/urandom"
+            "/bin/sh"
+          ];
+          __propagatedImpureHostDeps = computedPropagatedImpureHostDeps ++ __propagatedImpureHostDeps;
+        }))) (
       {
         # The meta attribute is passed in the resulting attribute set,
         # but it's not part of the actual derivation, i.e., it's not
@@ -179,6 +208,9 @@ let
       setup = setupScript;
 
       inherit preHook initialPath shell defaultNativeBuildInputs;
+    }
+    // ifDarwin {
+      __impureHostDeps = __stdenvImpureHostDeps;
     })
 
     // rec {
@@ -210,16 +242,19 @@ let
             || system == "i686-gnu"
             || system == "i686-freebsd"
             || system == "i686-openbsd"
+            || system == "i686-cygwin"
             || system == "i386-sunos";
       isx86_64 = system == "x86_64-linux"
               || system == "x86_64-darwin"
               || system == "x86_64-freebsd"
               || system == "x86_64-openbsd"
+              || system == "x86_64-cygwin"
               || system == "x86_64-solaris";
       is64bit = system == "x86_64-linux"
              || system == "x86_64-darwin"
              || system == "x86_64-freebsd"
              || system == "x86_64-openbsd"
+             || system == "x86_64-cygwin"
              || system == "x86_64-solaris"
              || system == "mips64el-linux";
       isMips = system == "mips-linux"

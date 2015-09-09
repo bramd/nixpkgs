@@ -17,16 +17,16 @@ let
 in
 
 pythonPackages.buildPythonPackage rec {
-  name = "nixops-1.3pre1362_2a616f8";
+  name = "nixops-1.3pre-cefcd9ba";
   namePrefix = "";
 
   src = fetchgit {
     url = https://github.com/NixOS/nixops;
-    rev = "2a616f8ddc18800c9e1c7013632078a55c06c3e3";
-    sha256 = "12arppri2j9sblja73jlfdcbpz1z94cd35n9ypazcsw4irmya3k6";
+    rev = "cefcd9bae9a4d3bac83f188460619d18972321a8";
+    sha256 = "1jwkbnfwics2j0m6mr75rz914vg0z46d2xv0z1717c1ac5rki0l2";
   };
 
-  buildInputs = [ pythonPackages.nose pythonPackages.coverage ];
+  buildInputs = [ /* libxslt */ pythonPackages.nose pythonPackages.coverage ];
 
   propagatedBuildInputs =
     [ pythonPackages.prettytable
@@ -43,16 +43,17 @@ pythonPackages.buildPythonPackage rec {
       # Backward compatibility symlink.
       ln -s nixops $out/bin/charon
 
-      make -C doc/manual install \
+      # Documentation build is currently broken. Re-try with newer version.
+      : make -C doc/manual install nixops.1 docbookxsl=${docbook5_xsl}/xml/xsl/docbook \
         docdir=$out/share/doc/nixops mandir=$out/share/man
 
       mkdir -p $out/share/nix/nixops
-      cp -av nix/* $out/share/nix/nixops
+      cp -av "nix/"* $out/share/nix/nixops
 
       # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
       # the version of openssh is causing errors when have big networks (40+)
       wrapProgram $out/bin/nixops --prefix PATH : "${openssh}/bin"
-    ''; # */
+    '';
 
   meta = {
     homepage = https://github.com/NixOS/nixops;
