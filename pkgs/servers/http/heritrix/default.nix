@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, jre }: 
+{ stdenv, fetchurl, jre, makeWrapper }: 
 
 stdenv.mkDerivation {
   name = "heritrix-3.1.0"; 
@@ -7,10 +7,17 @@ stdenv.mkDerivation {
     sha256 = "06n2rkhk79ql3x81gmj4l0wjihi3i50200x70g3jn42rf2gb40kb";
   };
   
-  inherit jre;
+  buildInputs = [ makeWrapper ];
   
   installPhase = ''
-    cp -r ./ $out
+    mkdir -p $out/heritrix $out/bin
+    cp -r ./ $out/heritrix
+    makeWrapper $out/heritrix/bin/heritrix $out/bin/heritrix \
+      --set JAVA_HOME ${jre} \
+      --set HERITRIX_HOME $out/heritrix \
+      --set HERITRIX_OUT /var/log/heritrix.log
+    substituteInPlace $out/heritrix/bin/heritrix \
+      --replace \''${HERITRIX_HOME}/heritrix_dmesg.log /tmp/heritrix_dmesg.log
   '';
 
 }
