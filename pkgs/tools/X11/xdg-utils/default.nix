@@ -1,4 +1,5 @@
-{ stdenv, fetchzip, fetchFromGitHub, file, libxslt, docbook_xml_dtd_412, docbook_xsl, xmlto
+{ stdenv, fetchurl, fetchFromGitHub
+, file, libxslt, docbook_xml_dtd_412, docbook_xsl, xmlto
 , w3m, which, gnugrep, gnused, coreutils
 , mimiSupport ? false, gawk ? null }:
 
@@ -15,12 +16,12 @@ let
 in
 
 stdenv.mkDerivation rec {
-  name = "xdg-utils-1.1.0-rc3p7";
+  name = "xdg-utils-${version}";
+  version = "1.1.1";
 
-  src = fetchzip {
-    name = "${name}.tar.gz";
-    url = "http://cgit.freedesktop.org/xdg/xdg-utils/snapshot/e8ee3b18d16e4.tar.gz";
-    sha256 = "1hz6rv45blcii1a8n1j45rg8vzm98vh4fvlca3zmay1kp57yr4jl";
+  src = fetchurl {
+    url = "https://portland.freedesktop.org/download/${name}.tar.gz";
+    sha256 = "09a1pk3ifsndc5qz2kcd1557i137gpgnv3d739pv22vfayi67pdh";
   };
 
   # just needed when built from git
@@ -28,18 +29,23 @@ stdenv.mkDerivation rec {
 
   postInstall = stdenv.lib.optionalString mimiSupport ''
     cp ${mimisrc}/xdg-open $out/bin/xdg-open
-    substituteInPlace $out/bin/xdg-open --replace "awk " "${gawk}/bin/awk "
-    substituteInPlace $out/bin/xdg-open --replace "sort " "${coreutils}/bin/sort "
-    substituteInPlace $out/bin/xdg-open --replace "(file " "(${file}/bin/file "
-  '' + ''
-    for item in $out/bin/*; do
-      substituteInPlace $item --replace "cut " "${coreutils}/bin/cut "
-      substituteInPlace $item --replace "sed " "${gnused}/bin/sed "
-      substituteInPlace $item --replace "egrep " "${gnugrep}/bin/egrep "
-      sed -i $item -re "s#([^e])grep #\1${gnugrep}/bin/grep #g" # Don't replace 'egrep'
-      substituteInPlace $item --replace "which " "type -P "
-      substituteInPlace $item --replace "/usr/bin/file" "${file}/bin/file"
+  ''
+  + ''
+    for tool in "${coreutils}/bin/cut" "${gnused}/bin/sed" \
+      "${gnugrep}"/bin/{e,}grep "${file}/bin/file" \
+      ${stdenv.lib.optionalString mimiSupport
+        '' "${gawk}/bin/awk" "${coreutils}/bin/sort" ''} ;
+    do
+      sed "s# $(basename "$tool") # $tool #g" -i "$out"/bin/*
     done
+
+    substituteInPlace $out/bin/xdg-open \
+      --replace "/usr/bin/printf" "${coreutils}/bin/printf"
+
+    substituteInPlace $out/bin/xdg-mime \
+      --replace "/usr/bin/file" "${file}/bin/file"
+
+    sed 's# which # type -P #g' -i "$out"/bin/*
   '';
 
   meta = with stdenv.lib; {
@@ -47,6 +53,6 @@ stdenv.mkDerivation rec {
     description = "A set of command line tools that assist applications with a variety of desktop integration tasks";
     license = if mimiSupport then licenses.gpl2 else licenses.free;
     maintainers = [ maintainers.eelco ];
-    platforms = platforms.linux;
+    platforms = platforms.all;
   };
 }

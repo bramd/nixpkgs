@@ -2,7 +2,7 @@
 
 let
 
-  version = "2.1.0.1";
+  version = "2.1.0.4";
 
 in stdenv.mkDerivation rec {
 
@@ -11,7 +11,7 @@ in stdenv.mkDerivation rec {
   src = fetchgit {
     url = "git://git.skarnet.org/s6-networking";
     rev = "refs/tags/v${version}";
-    sha256 = "0jdjxwqrp7lzdb85sp1gdkm7s478wyl7wqxb3jfxflgh2bgdgvy2";
+    sha256 = "0rm0vpfshayhi5qwsvkgzdjmg43lvslp74h7lda964p72wr6gahg";
   };
 
   dontDisableStatic = true;
@@ -32,7 +32,8 @@ in stdenv.mkDerivation rec {
     "--with-dynlib=${execline}/lib"
     "--with-dynlib=${s6}/lib"
     "--with-dynlib=${s6Dns}/lib"
-  ];
+  ]
+  ++ (stdenv.lib.optional stdenv.isDarwin "--target=${stdenv.system}");
 
   meta = {
     homepage = http://www.skarnet.org/software/s6-networking/;

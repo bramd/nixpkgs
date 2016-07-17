@@ -19,9 +19,13 @@ stdenv.mkDerivation rec {
   enableParallelBuilding = true;
   patches = [ ./writable-projects.patch ];
   preConfigure = "substituteInPlace ./configure --replace /usr/bin/file ${file}/bin/file";
-  postConfigure = optionalString stdenv.isLinux "substituteInPlace libtool --replace ldconfig ${stdenv.cc.libc}/sbin/ldconfig";
+  postConfigure = optionalString stdenv.isLinux "substituteInPlace libtool --replace ldconfig ${stdenv.cc.libc.bin}/bin/ldconfig";
   configureFlags = [ "--enable-pch=no" ]
     ++ optional contribPlugins "--with-contrib-plugins";
+
+  # Fix boost 1.59 compat
+  # Try removing in the next version
+  CPPFLAGS = "-DBOOST_ERROR_CODE_HEADER_ONLY -DBOOST_SYSTEM_NO_DEPRECATED";
 
   meta = with stdenv.lib; {
     maintainers = [ maintainers.linquize ];

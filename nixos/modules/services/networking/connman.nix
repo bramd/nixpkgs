@@ -5,7 +5,12 @@ with lib;
 
 let
   cfg = config.networking.connman;
+  configFile = pkgs.writeText "connman.conf" ''
+    [General]
+    NetworkInterfaceBlacklist=${concatStringsSep "," cfg.networkInterfaceBlacklist}
 
+    ${cfg.extraConfig}
+  '';
 in {
 
   ###### interface
@@ -22,6 +27,23 @@ in {
         '';
       };
 
+      extraConfig = mkOption {
+        type = types.lines;
+        default = ''
+        '';
+        description = ''
+          Configuration lines appended to the generated connman configuration file.
+        '';
+      };
+
+      networkInterfaceBlacklist = mkOption {
+        type = with types; listOf string;
+        default = [ "vmnet" "vboxnet" "virbr" "ifb" "ve" ];
+        description = ''
+          Default blacklisted interfaces, this includes NixOS containers interfaces (ve).
+        '';
+      };
+
     };
 
   };
@@ -31,13 +53,13 @@ in {
   config = mkIf cfg.enable {
 
     assertions = [{
-      assertion = config.networking.useDHCP == false;
+      assertion = !config.networking.useDHCP;
       message = "You can not use services.networking.connman with services.networking.useDHCP";
     }{
-      assertion = config.networking.wireless.enable == true;
+      assertion = config.networking.wireless.enable;
       message = "You must use services.networking.connman with services.networking.wireless";
     }{
-      assertion = config.networking.networkmanager.enable == false;
+      assertion = !config.networking.networkmanager.enable;
       message = "You can not use services.networking.connman with services.networking.networkmanager";
     }];
 
@@ -51,7 +73,7 @@ in {
         Type = "dbus";
         BusName = "net.connman";
         Restart = "on-failure";
-        ExecStart = "${pkgs.connman}/sbin/connmand --nodaemon";
+        ExecStart = "${pkgs.connman}/sbin/connmand --config=${configFile} --nodaemon";
         StandardOutput = "null";
       };
     };

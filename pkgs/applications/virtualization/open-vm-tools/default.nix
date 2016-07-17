@@ -1,26 +1,29 @@
-{ stdenv, lib, fetchurl, makeWrapper, autoconf, automake,
-  libmspack, openssl, pam, xercesc, icu, libdnet, procps, 
-  x11, libXinerama, libXi, libXrender, libXrandr, libXtst,
-  pkgconfig, glib, gtk, gtkmm }:
+{ stdenv, lib, fetchFromGitHub, makeWrapper, autoreconfHook,
+  libmspack, openssl, pam, xercesc, icu, libdnet, procps,
+  xlibsWrapper, libXinerama, libXi, libXrender, libXrandr, libXtst,
+  pkgconfig, glib, gtk, gtkmm, iproute, dbus, systemd }:
 
 let
-  majorVersion = "9.10";
-  minorVersion = "0";
-  patchSet = "2476743";
-  version = "${majorVersion}.${minorVersion}-${patchSet}";
+  majorVersion = "10.0";
+  minorVersion = "7";
+  version = "${majorVersion}.${minorVersion}";
 
-in stdenv.mkDerivation {
+in stdenv.mkDerivation rec {
   name = "open-vm-tools-${version}";
-  src = fetchurl {
-    url = "mirror://sourceforge/project/open-vm-tools/open-vm-tools/stable-${majorVersion}.x/open-vm-tools-${version}.tar.gz";
-    sha256 = "15lwayrz9bpx4z12fj616hsn25m997y72licwwz7kms4sx9ssip1";
+  src = fetchFromGitHub {
+    owner = "vmware";
+    repo = "open-vm-tools";
+    rev = "stable-${version}";
+    sha256 = "0xxgppxjisg3jly21r7mjk06rc4n7ssyvapasxhbi2d1bw0xkvrj";
   };
 
-  buildInputs = 
-    [ autoconf automake makeWrapper libmspack openssl pam xercesc icu libdnet procps
-      pkgconfig glib gtk gtkmm x11 libXinerama libXi libXrender libXrandr libXtst ];
+  sourceRoot = "${src.name}/open-vm-tools";
 
-  patchPhase = ''
+  buildInputs =
+    [ autoreconfHook makeWrapper libmspack openssl pam xercesc icu libdnet procps
+      pkgconfig glib gtk gtkmm xlibsWrapper libXinerama libXi libXrender libXrandr libXtst ];
+
+  postPatch = ''
      sed -i s,-Werror,,g configure.ac
      sed -i 's,^confdir = ,confdir = ''${prefix},' scripts/Makefile.am
      sed -i 's,etc/vmware-tools,''${prefix}/etc/vmware-tools,' services/vmtoolsd/Makefile.am
@@ -28,8 +31,15 @@ in stdenv.mkDerivation {
 
   patches = [ ./recognize_nixos.patch ];
 
-  preConfigure = "autoreconf";
   configureFlags = "--without-kernel-modules --without-xmlsecurity";
+
+  postInstall = ''
+	sed -i 's,which ,command -v ,' "$out/etc/vmware-tools/scripts/vmware/network"
+	wrapProgram "$out/etc/vmware-tools/scripts/vmware/network" \
+		--prefix PATH ':' "${iproute}/bin" \
+		--prefix PATH ':' "${dbus}/bin" \
+		--prefix PATH ':' "${systemd}/bin"
+  '';
 
   meta = with stdenv.lib; {
     homepage = "https://github.com/vmware/open-vm-tools";

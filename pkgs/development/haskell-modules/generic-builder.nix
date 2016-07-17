@@ -1,12 +1,13 @@
 { stdenv, fetchurl, ghc, pkgconfig, glibcLocales, coreutils, gnugrep, gnused
-, jailbreak-cabal, hscolour, cpphs
+, jailbreak-cabal, hscolour, cpphs, nodePackages
 }:
 
 { pname
+, dontStrip ? (ghc.isGhcjs or false)
 , version, revision ? null
 , sha256 ? null
 , src ? fetchurl { url = "mirror://hackage/${pname}-${version}.tar.gz"; inherit sha256; }
-, buildDepends ? [], libraryHaskellDepends ? [], executableHaskellDepends ? []
+, buildDepends ? [], setupHaskellDepends ? [], libraryHaskellDepends ? [], executableHaskellDepends ? []
 , buildTarget ? ""
 , buildTools ? [], libraryToolDepends ? [], executableToolDepends ? [], testToolDepends ? []
 , configureFlags ? []
@@ -35,6 +36,7 @@
 , testDepends ? [], testHaskellDepends ? [], testSystemDepends ? []
 , testTarget ? ""
 , broken ? false
+, preCompileBuildDriver ? "", postCompileBuildDriver ? ""
 , preUnpack ? "", postUnpack ? ""
 , patches ? [], patchPhase ? "", prePatch ? "", postPatch ? ""
 , preConfigure ? "", postConfigure ? ""
@@ -42,6 +44,7 @@
 , installPhase ? "", preInstall ? "", postInstall ? ""
 , checkPhase ? "", preCheck ? "", postCheck ? ""
 , preFixup ? "", postFixup ? ""
+, shellHook ? ""
 , coreSetup ? false # Use only core packages to build Setup.hs.
 , useCpphs ? false
 } @ args:
@@ -53,7 +56,17 @@ let
   inherit (stdenv.lib) optional optionals optionalString versionOlder
                        concatStringsSep enableFeature optionalAttrs toUpper;
 
+  isCross = ghc.isCross or false;
   isGhcjs = ghc.isGhcjs or false;
+  packageDbFlag = if isGhcjs || versionOlder "7.6" ghc.version
+                  then "package-db"
+                  else "package-conf";
+
+  nativeGhc = if isCross then ghc.bootPkgs.ghc else ghc;
+  nativeIsCross = nativeGhc.isCross or false;
+  nativePackageDbFlag = if versionOlder "7.6" nativeGhc.version
+                        then "package-db"
+                        else "package-conf";
 
   newCabalFileUrl = "http://hackage.haskell.org/package/${pname}-${version}/revision/${revision}.cabal";
   newCabalFile = fetchurl {
@@ -66,9 +79,6 @@ let
                      import Distribution.Simple
                      main = defaultMain
                    '';
-
-  ghc76xOrLater = isGhcjs || stdenv.lib.versionOlder "7.6" ghc.version;
-  packageDbFlag = if ghc76xOrLater then "package-db" else "package-conf";
 
   hasActiveLibrary = isLibrary && (enableStaticLibraries || enableSharedLibraries || enableLibraryProfiling);
 
@@ -87,13 +97,13 @@ let
     (optionalString useCpphs "--with-cpphs=${cpphs}/bin/cpphs --ghc-options=-cpp --ghc-options=-pgmP${cpphs}/bin/cpphs --ghc-options=-optP--cpp")
     (enableFeature enableSplitObjs "split-objs")
     (enableFeature enableLibraryProfiling "library-profiling")
-    (enableFeature enableExecutableProfiling "executable-profiling")
+    (enableFeature enableExecutableProfiling (if versionOlder ghc.version "8" then "executable-profiling" else "profiling"))
     (enableFeature enableSharedLibraries "shared")
     (optionalString (isGhcjs || versionOlder "7" ghc.version) (enableFeature enableStaticLibraries "library-vanilla"))
     (optionalString (isGhcjs || versionOlder "7.4" ghc.version) (enableFeature enableSharedExecutables "executable-dynamic"))
     (optionalString (isGhcjs || versionOlder "7" ghc.version) (enableFeature doCheck "tests"))
   ] ++ optionals isGhcjs [
-    "--with-hsc2hs=${ghc.nativeGhc}/bin/hsc2hs"
+    "--with-hsc2hs=${nativeGhc}/bin/hsc2hs"
     "--ghcjs"
   ];
 
@@ -110,7 +120,7 @@ let
                         optionals doCheck testPkgconfigDepends;
 
   propagatedBuildInputs = buildDepends ++ libraryHaskellDepends ++ executableHaskellDepends;
-  otherBuildInputs = extraLibraries ++ librarySystemDepends ++ executableSystemDepends ++
+  otherBuildInputs = extraLibraries ++ librarySystemDepends ++ executableSystemDepends ++ setupHaskellDepends ++
                      buildTools ++ libraryToolDepends ++ executableToolDepends ++
                      optionals (allPkgconfigDepends != []) ([pkgconfig] ++ allPkgconfigDepends) ++
                      optionals doCheck (testDepends ++ testHaskellDepends ++ testSystemDepends ++ testToolDepends);
@@ -121,7 +131,8 @@ let
 
   ghcEnv = ghc.withPackages (p: haskellBuildInputs);
 
-  setupCommand = if isGhcjs then "${ghc.nodejs}/bin/node ./Setup.jsexe/all.js" else "./Setup";
+  setupBuilder = if isCross then "${nativeGhc}/bin/ghc" else ghcCommand;
+  setupCommand = "./Setup";
   ghcCommand = if isGhcjs then "ghcjs" else "ghc";
   ghcCommandCaps = toUpper ghcCommand;
 
@@ -197,7 +208,7 @@ stdenv.mkDerivation ({
     done
 
     echo setupCompileFlags: $setupCompileFlags
-    ${ghcCommand} $setupCompileFlags --make -o Setup -odir $TMPDIR -hidir $TMPDIR $i
+    ${setupBuilder} $setupCompileFlags --make -o Setup -odir $TMPDIR -hidir $TMPDIR $i
 
     runHook postCompileBuildDriver
   '';
@@ -270,8 +281,9 @@ stdenv.mkDerivation ({
     isHaskellLibrary = hasActiveLibrary;
 
     env = stdenv.mkDerivation {
-      name = "interactive-${optionalString (hasActiveLibrary && pname != "ghcjs") "haskell-"}${pname}-${version}-environment";
-      nativeBuildInputs = [ ghcEnv systemBuildInputs ];
+      name = "interactive-${pname}-${version}-environment";
+      nativeBuildInputs = [ ghcEnv systemBuildInputs ]
+        ++ optional isGhcjs ghc."socket.io"; # for ghcjsi
       LANG = "en_US.UTF-8";
       LOCALE_ARCHIVE = optionalString stdenv.isLinux "${glibcLocales}/lib/locale/locale-archive";
       shellHook = ''
@@ -279,6 +291,7 @@ stdenv.mkDerivation ({
         export NIX_${ghcCommandCaps}PKG="${ghcEnv}/bin/${ghcCommand}-pkg"
         export NIX_${ghcCommandCaps}_DOCDIR="${ghcEnv}/share/doc/ghc/html"
         export NIX_${ghcCommandCaps}_LIBDIR="${ghcEnv}/lib/${ghcEnv.name}"
+        ${shellHook}
       '';
     };
 
@@ -292,12 +305,13 @@ stdenv.mkDerivation ({
          ;
 
 }
+// optionalAttrs (preCompileBuildDriver != "")  { inherit preCompileBuildDriver; }
+// optionalAttrs (postCompileBuildDriver != "") { inherit postCompileBuildDriver; }
 // optionalAttrs (preUnpack != "")      { inherit preUnpack; }
 // optionalAttrs (postUnpack != "")     { inherit postUnpack; }
 // optionalAttrs (configureFlags != []) { inherit configureFlags; }
 // optionalAttrs (patches != [])        { inherit patches; }
 // optionalAttrs (patchPhase != "")     { inherit patchPhase; }
-// optionalAttrs (postPatch != "")      { inherit postPatch; }
 // optionalAttrs (preConfigure != "")   { inherit preConfigure; }
 // optionalAttrs (postConfigure != "")  { inherit postConfigure; }
 // optionalAttrs (preBuild != "")       { inherit preBuild; }
@@ -311,5 +325,6 @@ stdenv.mkDerivation ({
 // optionalAttrs (postInstall != "")    { inherit postInstall; }
 // optionalAttrs (preFixup != "")       { inherit preFixup; }
 // optionalAttrs (postFixup != "")      { inherit postFixup; }
+// optionalAttrs (dontStrip)            { inherit dontStrip; }
 // optionalAttrs (stdenv.isLinux)       { LOCALE_ARCHIVE = "${glibcLocales}/lib/locale/locale-archive"; }
 )

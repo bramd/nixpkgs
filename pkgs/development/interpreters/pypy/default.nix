@@ -1,13 +1,13 @@
 { stdenv, fetchurl, zlib ? null, zlibSupport ? true, bzip2, pkgconfig, libffi
-, sqlite, openssl, ncurses, pythonFull, expat, tcl, tk, x11, libX11
-, makeWrapper, callPackage, self }:
+, sqlite, openssl, ncurses, pythonFull, expat, tcl, tk, xlibsWrapper, libX11
+, makeWrapper, callPackage, self, pypyPackages, gdbm, db }:
 
 assert zlibSupport -> zlib != null;
 
 let
 
-  majorVersion = "2.6";
-  version = "${majorVersion}.0";
+  majorVersion = "5.1.1";
+  version = "${majorVersion}";
   libPrefix = "pypy${majorVersion}";
 
   pypy = stdenv.mkDerivation rec {
@@ -18,34 +18,34 @@ let
 
     src = fetchurl {
       url = "https://bitbucket.org/pypy/pypy/get/release-${version}.tar.bz2";
-      sha256 = "0xympj874cnjpxj68xm5gllq2f8bbvz8hr0md8mh1yd6fgzzxibh";
+      sha256 = "1dmckvffanmh0b50pq34shnw05r55gjxn43kgvnkz5kkvvsbxdg1";
     };
 
-    buildInputs = [ bzip2 openssl pkgconfig pythonFull libffi ncurses expat sqlite tk tcl x11 libX11 makeWrapper ]
+   # http://bugs.python.org/issue27369
+    postPatch = let
+      expatch = fetchurl {
+        name = "tests-expat-2.2.0.patch";
+        url = "http://bugs.python.org/file43514/0001-Fix-Python-2.7.11-tests-for-Expat-2.2.0.patch";
+        sha256 = "1j3pa7ly9xrhp8jjwg5l77z7i3y68gx8f8jchqk6zc39d9glq3il";
+      };
+      in ''
+      patch lib-python/2.7/test/test_pyexpat.py < '${expatch}'
+    '';
+
+    buildInputs = [ bzip2 openssl pkgconfig pythonFull libffi ncurses expat sqlite tk tcl xlibsWrapper libX11 makeWrapper gdbm db ]
       ++ stdenv.lib.optional (stdenv ? cc && stdenv.cc.libc != null) stdenv.cc.libc
       ++ stdenv.lib.optional zlibSupport zlib;
 
-    C_INCLUDE_PATH = stdenv.lib.concatStringsSep ":" (map (p: "${p}/include") buildInputs);
-    LIBRARY_PATH = stdenv.lib.concatStringsSep ":" (map (p: "${p}/lib") buildInputs);
-    LD_LIBRARY_PATH = stdenv.lib.concatStringsSep ":" (map (p: "${p}/lib")
-      (stdenv.lib.filter (x : x.outPath != stdenv.cc.libc.outPath or "") buildInputs));
+    C_INCLUDE_PATH = stdenv.lib.makeSearchPathOutput "dev" "include" buildInputs;
+    LIBRARY_PATH = stdenv.lib.makeLibraryPath buildInputs;
+    LD_LIBRARY_PATH = stdenv.lib.makeLibraryPath (stdenv.lib.filter (x : x.outPath != stdenv.cc.libc.outPath or "") buildInputs);
 
     preConfigure = ''
-      substituteInPlace Makefile \
-        --replace "-Ojit" "-Ojit --batch" \
-        --replace "pypy/goal/targetpypystandalone.py" "pypy/goal/targetpypystandalone.py --withmod-_minimal_curses --withmod-unicodedata --withmod-thread --withmod-bz2 --withmod-_multiprocessing"
-
-      # we are using cpython and not pypy to do translation
-      substituteInPlace rpython/bin/rpython \
-        --replace "/usr/bin/env pypy" "${pythonFull}/bin/python"
-      substituteInPlace pypy/goal/targetpypystandalone.py \
-        --replace "/usr/bin/env pypy" "${pythonFull}/bin/python"
-
       # hint pypy to find nix ncurses
       substituteInPlace pypy/module/_minimal_curses/fficurses.py \
-        --replace "/usr/include/ncurses/curses.h" "${ncurses}/include/curses.h" \
-        --replace "ncurses/curses.h" "${ncurses}/include/curses.h" \
-        --replace "ncurses/term.h" "${ncurses}/include/term.h" \
+        --replace "/usr/include/ncurses/curses.h" "${ncurses.dev}/include/curses.h" \
+        --replace "ncurses/curses.h" "${ncurses.dev}/include/curses.h" \
+        --replace "ncurses/term.h" "${ncurses.dev}/include/term.h" \
         --replace "libraries=['curses']" "libraries=['ncurses']"
 
       # tkinter hints
@@ -54,7 +54,11 @@ let
         --replace "linklibs = ['tcl' + _ver, 'tk' + _ver]" "linklibs=['${tcl.libPrefix}', '${tk.libPrefix}']" \
         --replace "libdirs = []" "libdirs = ['${tk}/lib', '${tcl}/lib']"
 
-      sed -i "s@libraries=\['sqlite3'\]\$@libraries=['sqlite3'], include_dirs=['${sqlite}/include'], library_dirs=['${sqlite}/lib']@" lib_pypy/_sqlite3_build.py
+      sed -i "s@libraries=\['sqlite3'\]\$@libraries=['sqlite3'], include_dirs=['${sqlite.dev}/include'], library_dirs=['${sqlite.out}/lib']@" lib_pypy/_sqlite3_build.py
+    '';
+
+    buildPhase = ''
+      ${pythonFull.interpreter} rpython/bin/rpython --make-jobs="$NIX_BUILD_CORES" -Ojit --batch pypy/goal/targetpypystandalone.py --withmod-_minimal_curses --withmod-unicodedata --withmod-thread --withmod-bz2 --withmod-_multiprocessing
     '';
 
     setupHook = ./setup-hook.sh;
@@ -72,20 +76,16 @@ let
 
     doCheck = true;
     checkPhase = ''
-       export TERMINFO="${ncurses}/share/terminfo/";
+       export TERMINFO="${ncurses.out}/share/terminfo/";
        export TERM="xterm";
        export HOME="$TMPDIR";
        # disable shutils because it assumes gid 0 exists
        # disable socket because it has two actual network tests that fail
-       # disable test_mhlib because it fails for unknown reason
-       # disable sqlite3 due to https://bugs.pypy.org/issue1740
-       # disable test_multiprocessing due to transient errors
-       # disable test_os because test_urandom_failure fails
-       # disable test_urllib2net and test_urllibnet because it requires networking (example.com)
-       # disable test_zipfile64 because it randomly timeouts
-       # disable test_cpickle because timeouts
+       # disable test_urllib2net, test_urllib2_localnet, and test_urllibnet because they require networking (example.com)
        # disable test_ssl because no shared cipher' not found in '[Errno 1] error:14077410:SSL routines:SSL23_GET_SERVER_HELLO:sslv3 alert handshake failure
-      ./pypy-c ./pypy/test_all.py --pypy=./pypy-c -k 'not (test_ssl or test_cpickle or test_sqlite or test_urllib2net or test_urllibnet or test_socket or test_os or test_shutil or test_mhlib or test_multiprocessing or test_zipfile64)' lib-python
+       # disable test_zipfile64 because it causes ENOSPACE
+       # disable test_epoll because of invalid arg, should be fixed in as of version 5.1.2
+      ./pypy-c ./pypy/test_all.py --pypy=./pypy-c -k 'not ( test_ssl or test_urllib2net or test_urllibnet or test_urllib2_localnet or test_socket or test_shutil or test_zipfile64 or test_epoll )' lib-python
     '';
 
     installPhase = ''
@@ -119,7 +119,8 @@ let
       isPypy = true;
       buildEnv = callPackage ../python/wrapper.nix { python = self; };
       interpreter = "${self}/bin/${executable}";
-      sitePackages = "lib/${libPrefix}/site-packages";
+      sitePackages = "site-packages";
+      withPackages = import ../python/with-packages.nix { inherit buildEnv; pythonPackages = pypyPackages; };
     };
 
     enableParallelBuilding = true;  # almost no parallelization without STM
@@ -129,7 +130,7 @@ let
       description = "Fast, compliant alternative implementation of the Python language (2.7.8)";
       license = licenses.mit;
       platforms = platforms.linux;
-      maintainers = with maintainers; [ iElectric ];
+      maintainers = with maintainers; [ domenkozar ];
     };
   };
 

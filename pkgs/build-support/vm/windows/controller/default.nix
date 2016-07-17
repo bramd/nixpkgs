@@ -48,11 +48,11 @@ let
     mount -t proc none /fs/proc
 
     mount -t 9p \
-      -o trans=virtio,version=9p2000.L,msize=262144,cache=loose \
+      -o trans=virtio,version=9p2000.L,cache=loose \
       store /fs/nix/store
 
     mount -t 9p \
-      -o trans=virtio,version=9p2000.L,msize=262144,cache=loose \
+      -o trans=virtio,version=9p2000.L,cache=loose \
       xchg /fs/xchg
 
     echo root:x:0:0::/root:/bin/false > /fs/etc/passwd
@@ -70,8 +70,6 @@ let
       symlink = "/init";
     };
   };
-
-  shellEscape = x: "'${replaceChars ["'"] [("'\\'" + "'")] x}'";
 
   loopForever = "while :; do ${coreutils}/bin/sleep 1; done";
 
@@ -132,7 +130,7 @@ let
       -o StrictHostKeyChecking=no \
       -i /ssh.key \
       -l Administrator \
-      192.168.0.1 -- ${shellEscape command}
+      192.168.0.1 -- ${lib.escapeShellArg command}
   '') + optionalString (suspendTo != null) ''
     ${coreutils}/bin/touch /xchg/suspend_now
     ${loopForever}

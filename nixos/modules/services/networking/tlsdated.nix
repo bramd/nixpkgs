@@ -26,6 +26,7 @@ in
 
       extraOptions = mkOption {
         type = types.string;
+        default = "";
         description = ''
           Additional command line arguments to pass to tlsdated.
         '';
@@ -63,7 +64,7 @@ in
         });
         default = [
           {
-            host = "www.ptb.de";
+            host = "encrypted.google.com";
             port = 443;
             proxy = null;
           }

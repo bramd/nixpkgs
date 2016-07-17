@@ -3,7 +3,7 @@
 let version = "4.11.3";
 in
 stdenv.mkDerivation {
-  name = "PyQt-x11-gpl-${version}";
+  name = "${python.libPrefix}-PyQt-x11-gpl-${version}";
 
   src = fetchurl {
     url = "mirror://sourceforge/pyqt/PyQt4/PyQt-${version}/PyQt-x11-gpl-${version}.tar.gz";
@@ -39,6 +39,8 @@ stdenv.mkDerivation {
   '';
 
   enableParallelBuilding = true;
+
+  passthru.pythonPath = [];
 
   meta = {
     description = "Python bindings for Qt";

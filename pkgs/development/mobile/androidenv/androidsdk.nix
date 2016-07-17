@@ -5,20 +5,22 @@
 , libX11, libXext, libXrender, libxcb, libXau, libXdmcp, libXtst, mesa, alsaLib
 , freetype, fontconfig, glib, gtk, atk, file, jdk, coreutils
 }:
-{platformVersions, abiVersions, useGoogleAPIs, useExtraSupportLibs?false, useGooglePlayServices?false}:
+{ platformVersions, abiVersions, useGoogleAPIs, useExtraSupportLibs ? false, useGooglePlayServices ? false }:
+
+with { inherit (stdenv.lib) makeLibraryPath; };
 
 stdenv.mkDerivation rec {
   name = "android-sdk-${version}";
-  version = "24.1.2";
+  version = "24.4";
 
   src = if (stdenv.system == "i686-linux" || stdenv.system == "x86_64-linux")
     then fetchurl {
       url = "http://dl.google.com/android/android-sdk_r${version}-linux.tgz";
-      sha1 = "a46298bjpgzsnchhpcm1i86c4r50x638";
+      sha1 = "eec87cdb9778718e4073b4ca326a46cdd084f901";
     }
     else if stdenv.system == "x86_64-darwin" then fetchurl {
       url = "http://dl.google.com/android/android-sdk_r${version}-macosx.zip";
-      sha1 = "as109624lgrn8krylmyvm33yapqkzr00";
+      sha1 = "a9b6f025a9691aef430b19b52e01844dbbcbf6b4";
     }
     else throw "platform not ${stdenv.system} supported!";
 
@@ -39,8 +41,8 @@ stdenv.mkDerivation rec {
       
       for i in emulator emulator-arm emulator-mips emulator-x86 mksdcard
       do
-          patchelf --set-interpreter ${stdenv_32bit.cc.libc}/lib/ld-linux.so.2 $i
-          patchelf --set-rpath ${stdenv_32bit.cc.cc}/lib $i
+          patchelf --set-interpreter ${stdenv_32bit.cc.libc.out}/lib/ld-linux.so.2 $i
+          patchelf --set-rpath ${stdenv_32bit.cc.cc.lib}/lib $i
       done
       
       ${stdenv.lib.optionalString (stdenv.system == "x86_64-linux") ''
@@ -48,24 +50,33 @@ stdenv.mkDerivation rec {
         
         for i in emulator64-arm emulator64-mips emulator64-x86
         do
-            patchelf --set-interpreter ${stdenv.cc.libc}/lib/ld-linux-x86-64.so.2 $i
-            patchelf --set-rpath ${stdenv.cc.cc}/lib64 $i
+            patchelf --set-interpreter ${stdenv.cc.libc.out}/lib/ld-linux-x86-64.so.2 $i
+            patchelf --set-rpath ${stdenv.cc.cc.lib}/lib64 $i
         done
       ''}
       
-      # The android script used SWT and wants to dynamically load some GTK+ stuff.
-      # The following wrapper ensures that they can be found:
+      # The following scripts used SWT and wants to dynamically load some GTK+ stuff.
+      # Creating these wrappers ensure that they can be found:
+      
       wrapProgram `pwd`/android \
+        --prefix PATH : ${jdk}/bin \
+        --prefix LD_LIBRARY_PATH : ${makeLibraryPath [ glib gtk libXtst ]}
+    
+      wrapProgram `pwd`/uiautomatorviewer \
         --prefix PATH : ${jdk}/bin \
         --prefix LD_LIBRARY_PATH : ${glib}/lib:${gtk}/lib:${libXtst}/lib
     
+      wrapProgram `pwd`/hierarchyviewer \
+        --prefix PATH : ${jdk}/bin \
+        --prefix LD_LIBRARY_PATH : ${glib}/lib:${gtk}/lib:${libXtst}/lib
+      
       # The emulators need additional libraries, which are dynamically loaded => let's wrap them
     
       for i in emulator emulator-arm emulator-mips emulator-x86
       do
           wrapProgram `pwd`/$i \
             --prefix PATH : ${file}/bin \
-            --suffix LD_LIBRARY_PATH : `pwd`/lib:${libX11_32bit}/lib:${libxcb_32bit}/lib:${libXau_32bit}/lib:${libXdmcp_32bit}/lib:${libXext_32bit}/lib:${mesa_32bit}/lib
+            --suffix LD_LIBRARY_PATH : `pwd`/lib:${makeLibraryPath [ libX11_32bit libxcb_32bit libXau_32bit libXdmcp_32bit libXext_32bit mesa_32bit ]}
       done
       
       ${stdenv.lib.optionalString (stdenv.system == "x86_64-linux") ''
@@ -73,7 +84,7 @@ stdenv.mkDerivation rec {
         do
             wrapProgram `pwd`/$i \
               --prefix PATH : ${file}/bin \
-              --suffix LD_LIBRARY_PATH : `pwd`/lib:${libX11}/lib:${libxcb}/lib:${libXau}/lib:${libXdmcp}/lib:${libXext}/lib:${mesa}/lib:${alsaLib}/lib
+              --suffix LD_LIBRARY_PATH : `pwd`/lib:${makeLibraryPath [ libX11 libxcb libXau libXdmcp libXext mesa alsaLib]}
         done
       ''}
     ''}
@@ -85,11 +96,11 @@ stdenv.mkDerivation rec {
         # The monitor requires some more patching
         
         cd lib/monitor-x86
-        patchelf --set-interpreter ${stdenv.cc.libc}/lib/ld-linux.so.2 monitor
-        patchelf --set-rpath ${libX11}/lib:${libXext}/lib:${libXrender}/lib:${freetype}/lib:${fontconfig}/lib libcairo-swt.so
+        patchelf --set-interpreter ${stdenv.cc.libc.out}/lib/ld-linux.so.2 monitor
+        patchelf --set-rpath ${makeLibraryPath [ libX11 libXext libXrender freetype fontconfig ]} libcairo-swt.so
         
         wrapProgram `pwd`/monitor \
-          --prefix LD_LIBRARY_PATH : ${gtk}/lib:${atk}/lib:${stdenv.cc.cc}/lib:${libXtst}/lib
+          --prefix LD_LIBRARY_PATH : ${makeLibraryPath [ gtk atk stdenv.cc.cc libXtst ]}
 
         cd ../..
       ''
@@ -98,11 +109,11 @@ stdenv.mkDerivation rec {
         # The monitor requires some more patching
         
         cd lib/monitor-x86_64
-        patchelf --set-interpreter ${stdenv.cc.libc}/lib/ld-linux-x86-64.so.2 monitor
-        patchelf --set-rpath ${libX11}/lib:${libXext}/lib:${libXrender}/lib:${freetype}/lib:${fontconfig}/lib libcairo-swt.so
+        patchelf --set-interpreter ${stdenv.cc.libc.out}/lib/ld-linux-x86-64.so.2 monitor
+        patchelf --set-rpath ${makeLibraryPath [ libX11 libXext libXrender freetype fontconfig ]} libcairo-swt.so
         
         wrapProgram `pwd`/monitor \
-          --prefix LD_LIBRARY_PATH : ${gtk}/lib:${atk}/lib:${stdenv.cc.cc}/lib::${libXtst}/lib
+          --prefix LD_LIBRARY_PATH : ${makeLibraryPath [ gtk atk stdenv.cc.cc libXtst ]}
 
         cd ../..
       ''
@@ -210,7 +221,7 @@ stdenv.mkDerivation rec {
         fi
     done
 
-    for i in $out/libexec/android-sdk-*/build-tools/android-*/*
+    for i in $out/libexec/android-sdk-*/build-tools/*/*
     do
         if [ ! -d $i ] && [ -x $i ]
         then

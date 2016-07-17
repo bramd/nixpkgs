@@ -12,6 +12,9 @@
 , zlib
 , callPackage
 , self
+, python34Packages
+
+, CF, configd
 }:
 
 assert readline != null -> ncurses != null;
@@ -21,24 +24,42 @@ with stdenv.lib;
 let
   majorVersion = "3.4";
   pythonVersion = majorVersion;
-  version = "${majorVersion}.3";
+  version = "${majorVersion}.5";
   fullVersion = "${version}";
 
   buildInputs = filter (p: p != null) [
-    zlib bzip2 lzma gdbm sqlite db readline ncurses openssl tcl tk libX11 xproto
-  ];
+    zlib
+    bzip2
+    lzma
+    gdbm
+    sqlite
+    db
+    readline
+    ncurses
+    openssl
+    tcl
+    tk
+    libX11
+    xproto
+  ] ++ optionals stdenv.isDarwin [ CF configd ];
 in
 stdenv.mkDerivation {
   name = "python3-${fullVersion}";
   pythonVersion = majorVersion;
   inherit majorVersion version;
 
+  inherit buildInputs;
+
   src = fetchurl {
     url = "http://www.python.org/ftp/python/${version}/Python-${fullVersion}.tar.xz";
-    sha256 = "1f4nm4z08sy0kqwisvv95l02crv6dyysdmx44p1mz3bn6csrdcxm";
+    sha256 = "12l9klp778wklxmckhghniy5hklss8r26995pyd00qbllk4b2r7f";
   };
 
-  NIX_LDFLAGS = stdenv.lib.optionalString stdenv.isLinux "-lgcc_s";
+  NIX_LDFLAGS = optionalString stdenv.isLinux "-lgcc_s";
+
+  prePatch = optionalString stdenv.isDarwin ''
+    substituteInPlace configure --replace '`/usr/bin/arch`' '"i386"'
+  '';
 
   preConfigure = ''
     for i in /usr /sw /opt /pkg; do	# improve purity
@@ -50,8 +71,8 @@ stdenv.mkDerivation {
      ''}
 
     configureFlagsArray=( --enable-shared --with-threads
-                          CPPFLAGS="${concatStringsSep " " (map (p: "-I${p}/include") buildInputs)}"
-                          LDFLAGS="${concatStringsSep " " (map (p: "-L${p}/lib") buildInputs)}"
+                          CPPFLAGS="${concatStringsSep " " (map (p: "-I${getDev p}/include") buildInputs)}"
+                          LDFLAGS="${concatStringsSep " " (map (p: "-L${getLib p}/lib") buildInputs)}"
                           LIBS="${optionalString (!stdenv.isDarwin) "-lcrypt"} ${optionalString (ncurses != null) "-lncurses"}"
                         )
   '';
@@ -84,6 +105,7 @@ stdenv.mkDerivation {
     libPrefix = "python${majorVersion}";
     executable = "python3.4m";
     buildEnv = callPackage ../wrapper.nix { python = self; };
+    withPackages = import ../with-packages.nix { inherit buildEnv; pythonPackages = python34Packages; };
     isPy3 = true;
     isPy34 = true;
     is_py3k = true;  # deprecated
@@ -105,8 +127,8 @@ stdenv.mkDerivation {
       hierarchical packages; exception-based error handling; and very
       high level dynamic data types.
     '';
-    license = stdenv.lib.licenses.psfl;
-    platforms = with stdenv.lib.platforms; linux ++ darwin;
-    maintainers = with stdenv.lib.maintainers; [ simons chaoflow iElectric cstrahan ];
+    license = licenses.psfl;
+    platforms = with platforms; linux ++ darwin;
+    maintainers = with maintainers; [ chaoflow domenkozar cstrahan ];
   };
 }

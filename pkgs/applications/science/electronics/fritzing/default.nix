@@ -1,7 +1,6 @@
-{ stdenv, fetchurl, qt5, boost }:
+{ stdenv, fetchurl, qtbase, qtsvg, qmakeHook, boost }:
 
 stdenv.mkDerivation rec {
-
   version = "0.9.0b";
   name = "fritzing-${version}";
 
@@ -14,14 +13,14 @@ stdenv.mkDerivation rec {
     tar xjf ${src}
   '';
 
-  buildInputs = [ qt5.base qt5.svg boost ];
+  buildInputs = [ qtbase qtsvg boost qmakeHook ];
 
-  configurePhase = ''
+  qmakeFlags = [ "phoenix.pro" ];
+
+  preConfigure = ''
     cd fritzing-${version}.source
-    echo $PATH
-    qmake PREFIX=$out phoenix.pro
   '';
-
+  
   meta = {
     description = "An open source prototyping tool for Arduino-based projects";
     homepage = http://fritzing.org/;

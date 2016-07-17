@@ -10,7 +10,7 @@ stdenv.mkDerivation {
   src = fetchgit {
     url = https://github.com/johnwhitington/cpdf-source.git;
     rev = "refs/tags/v${version}";
-    sha256 = "0c482wfa5q845k0ahx8irg1jl05ncn0kv42dg08zkph7xi6dmgnv";
+    sha256 = "01dq7z3admwnyp22z1h43a8f3glii3zxc9c7i6s2rgza3pd9jq4k";
   };
 
   buildInputs = [ ocaml findlib ncurses ];
@@ -28,7 +28,7 @@ stdenv.mkDerivation {
 
   meta = {
     homepage = http://www.coherentpdf.com/;
-    platforms = ocaml.meta.platforms;
+    platforms = ocaml.meta.platforms or [];
     description = "PDF Command Line Tools";
     maintainers = with stdenv.lib.maintainers; [ vbgl ];
   };

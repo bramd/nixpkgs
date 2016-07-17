@@ -33,6 +33,7 @@ in
       package = mkOption {
         type = types.package;
         default = pkgs.logstash;
+        defaultText = "pkgs.logstash";
         example = literalExample "pkgs.logstash";
         description = "Logstash package to use.";
       };
@@ -87,7 +88,7 @@ in
         example = ''
           # Read from journal
           pipe {
-            command => "${pkgs.systemd}/bin/journalctl -f -o json"
+            command => "''${pkgs.systemd}/bin/journalctl -f -o json"
             type => "syslog" codec => json {}
           }
         '';
@@ -104,7 +105,7 @@ in
             prune {
               whitelist_names => [
                 "type", "@timestamp", "@version",
-                "MESSAGE", "PRIORITY", "SYSLOG_FACILITY",
+                "MESSAGE", "PRIORITY", "SYSLOG_FACILITY"
               ]
             }
           }

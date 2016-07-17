@@ -3,12 +3,12 @@
 with stdenv.lib;
 
 stdenv.mkDerivation rec {
-  version = "1.0.4";
+  version = "1.1.12";
   name = "zerotierone";
 
   src = fetchurl {
     url = "https://github.com/zerotier/ZeroTierOne/archive/${version}.tar.gz";
-    sha256 = "1klnsjajlas71flbf6w2q3iqhhqrmzqpd2g4qw9my66l7kcsbxfd";
+    sha256 = "0mji6bmxjvxy2mhvzfz4vpdz62n1wv6a02rapzbiad8zr2c869cm";
   };
 
   preConfigure = ''
@@ -17,13 +17,15 @@ stdenv.mkDerivation rec {
       substituteInPlace ./make-linux.mk \
           --replace 'CXX=$(shell which clang++ g++ c++ 2>/dev/null | head -n 1)' "CC=${gcc}/bin/g++";
       substituteInPlace ./osdep/LinuxEthernetTap.cpp \
-          --replace '/sbin/ip' "${iproute}/bin/ip"
+          --replace 'execlp("ip",' 'execlp("${iproute}/bin/ip",'
   '';
 
   buildInputs = [ openssl lzo zlib gcc iproute ];
 
+  buildFlags = [ "one" ]; # TODO: Add support for building and installing manpages as well.
+
   installPhase = ''
-    installBin zerotier-one
+    install -Dt "$out/bin/" zerotier-one
     ln -s $out/bin/zerotier-one $out/bin/zerotier-idtool
     ln -s $out/bin/zerotier-one $out/bin/zerotier-cli
   '';

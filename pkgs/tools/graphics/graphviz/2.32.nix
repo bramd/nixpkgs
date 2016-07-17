@@ -1,5 +1,5 @@
 { stdenv, fetchurl, pkgconfig, libpng, libjpeg, expat, libXaw
-, yacc, libtool, fontconfig, pango, gd, xlibs, gts, gettext, cairo
+, yacc, libtool, fontconfig, pango, gd, xorg, gts, gettext, cairo
 }:
 
 stdenv.mkDerivation rec {
@@ -14,22 +14,22 @@ stdenv.mkDerivation rec {
   buildInputs =
     [ pkgconfig libpng libjpeg expat libXaw yacc libtool fontconfig
       pango gd gts
-    ] ++ stdenv.lib.optionals (xlibs != null) [ xlibs.xlibs xlibs.libXrender ]
+    ] ++ stdenv.lib.optionals (xorg != null) [ xorg.xlibsWrapper xorg.libXrender ]
     ++ stdenv.lib.optional (stdenv.system == "x86_64-darwin") gettext;
 
-  CPPFLAGS = stdenv.lib.optionalString (stdenv.system == "x86_64-darwin") "-I${cairo}/include/cairo";
+  CPPFLAGS = stdenv.lib.optionalString (stdenv.system == "x86_64-darwin") "-I${cairo.dev}/include/cairo";
 
   configureFlags =
-    [ "--with-pngincludedir=${libpng}/include"
-      "--with-pnglibdir=${libpng}/lib"
-      "--with-jpegincludedir=${libjpeg}/include"
-      "--with-jpeglibdir=${libjpeg}/lib"
-      "--with-expatincludedir=${expat}/include"
-      "--with-expatlibdir=${expat}/lib"
+    [ "--with-pngincludedir=${libpng.dev}/include"
+      "--with-pnglibdir=${libpng.out}/lib"
+      "--with-jpegincludedir=${libjpeg.dev}/include"
+      "--with-jpeglibdir=${libjpeg.out}/lib"
+      "--with-expatincludedir=${expat.dev}/include"
+      "--with-expatlibdir=${expat.out}/lib"
       "--with-cgraph=no"
       "--with-sparse=no"
     ]
-    ++ stdenv.lib.optional (xlibs == null) "--without-x";
+    ++ stdenv.lib.optional (xorg == null) "--without-x";
 
   preBuild = ''
     sed -e 's@am__append_5 *=.*@am_append_5 =@' -i lib/gvc/Makefile
@@ -55,7 +55,7 @@ stdenv.mkDerivation rec {
     '';
 
     hydraPlatforms = stdenv.lib.platforms.linux ++ stdenv.lib.platforms.darwin;
-    maintainers = with stdenv.lib.maintainers; [ simons bjornfor raskin ];
+    maintainers = with stdenv.lib.maintainers; [ bjornfor raskin ];
     inherit version;
     branch = "2.32";
   };

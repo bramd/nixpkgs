@@ -42,7 +42,7 @@ with lib;
 
         The "root" account has an empty password.  ${
           optionalString config.services.xserver.enable
-            "Type `start display-manager' to\nstart the graphical user interface."}
+            "Type `systemctl start display-manager' to\nstart the graphical user interface."}
       '';
 
     # Allow sshd to be started manually through "start sshd".
@@ -51,7 +51,7 @@ with lib;
 
     # Enable wpa_supplicant, but don't start it by default.
     networking.wireless.enable = mkDefault true;
-    jobs.wpa_supplicant.startOn = mkOverride 50 "";
+    systemd.services.wpa_supplicant.wantedBy = mkOverride 50 [];
 
     # Tell the Nix evaluator to garbage collect more aggressively.
     # This is desirable in memory-constrained environments that don't

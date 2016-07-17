@@ -1,16 +1,27 @@
 { stdenv, fetchgit, autoreconfHook, texinfo, ncurses, readline, zlib, lzo, openssl }:
 
 stdenv.mkDerivation rec {
-  name = "tinc-1.1pre-2015-07-22";
+  name = "tinc-${version}";
+  version = "1.1pre14";
 
   src = fetchgit {
+    rev = "refs/tags/release-${version}";
     url = "git://tinc-vpn.org/tinc";
-    rev = "56a8b90d863171d62e0a337b5635fbfc53a67fb0";
-    sha256 = "081z4xs5l988g1s0yr7fvnysajd05bx6s54sh84jvq7ij8af71dm";
+    sha256 = "05an2vj0a3wjv5w672wgzyixbydin5jpja5zv6x81bc72dms0ymc";
   };
+
+  outputs = [ "out" "doc" ];
 
   nativeBuildInputs = [ autoreconfHook texinfo ];
   buildInputs = [ ncurses readline zlib lzo openssl ];
+
+  prePatch = ''
+    substituteInPlace configure.ac --replace UNKNOWN ${version}
+  '';
+
+  postInstall = ''
+    rm $out/bin/tinc-gui
+  '';
 
   configureFlags = [
     "--sysconfdir=/etc"
@@ -28,6 +39,6 @@ stdenv.mkDerivation rec {
     homepage="http://www.tinc-vpn.org/";
     license = licenses.gpl2Plus;
     platforms = platforms.unix;
-    maintainers = with maintainers; [ wkennington ];
+    maintainers = with maintainers; [ wkennington fpletz ];
   };
 }

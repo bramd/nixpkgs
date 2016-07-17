@@ -2,11 +2,11 @@
 
 stdenv.mkDerivation rec {
   name    = "daemonize-${version}";
-  version = "1.7.5";
+  version = "1.7.7";
 
   src = fetchurl {
     url    = "https://github.com/bmc/daemonize/archive/release-${version}.tar.gz";
-    sha256 = "0sx0k05n8kyn0ma51nkjll8cs1xygmhv4qsyshxxj8apvjw20qk1";
+    sha256 = "01gabcc8m4jkymd31p6v5883ii3g7126cici6rd03maf4jizxjmk";
   };
 
   meta = with stdenv.lib; {

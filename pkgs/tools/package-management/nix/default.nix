@@ -1,4 +1,4 @@
-{ lib, stdenv, fetchurl, perl, curl, bzip2, sqlite, openssl ? null
+{ lib, stdenv, fetchurl, perl, curl, bzip2, sqlite, openssl ? null, xz
 , pkgconfig, boehmgc, perlPackages, libsodium
 , storeDir ? "/nix/store"
 , stateDir ? "/nix/var"
@@ -9,11 +9,12 @@ let
   common = { name, src }: stdenv.mkDerivation rec {
     inherit name src;
 
-    outputs = [ "out" "doc" ];
+    outputs = [ "dev" "out" "man" "doc" ];
 
     nativeBuildInputs = [ perl pkgconfig ];
 
-    buildInputs = [ curl openssl sqlite ] ++ lib.optional stdenv.isLinux libsodium;
+    buildInputs = [ curl openssl sqlite xz ]
+      ++ lib.optional (stdenv.isLinux || stdenv.isDarwin) libsodium;
 
     propagatedBuildInputs = [ boehmgc ];
 
@@ -21,8 +22,8 @@ let
     # would end up using the wrong bzip2 when cross-compiling.
     # XXX: The right thing would be to reinstate `--with-bzip2' in Nix.
     postUnpack =
-      '' export CPATH="${bzip2}/include"
-         export LIBRARY_PATH="${bzip2}/lib"
+      '' export CPATH="${bzip2.dev}/include"
+         export LIBRARY_PATH="${bzip2.out}/lib"
          export CXXFLAGS="-Wno-error=reserved-user-defined-literal"
       '';
 
@@ -40,7 +41,9 @@ let
 
     installFlags = "sysconfdir=$(out)/etc";
 
-    doInstallCheck = true;
+    doInstallCheck = false;
+
+    separateDebugInfo = stdenv.isLinux;
 
     crossAttrs = {
       postUnpack =
@@ -83,25 +86,22 @@ let
 
 in rec {
 
-   nix = nixStable;
+  nix = nixStable;
 
-   nixStable = common rec {
-     name = "nix-1.10";
-      src = fetchurl {
-        url = "http://nixos.org/releases/nix/${name}/${name}.tar.xz";
-        sha256 = "5612ca7a549dd1ee20b208123e041aaa95a414a0e8f650ea88c672dc023d10f6";
-      };
-   };
+  nixStable = common rec {
+    name = "nix-1.11.2";
+    src = fetchurl {
+      url = "http://nixos.org/releases/nix/${name}/${name}.tar.xz";
+      sha256 = "fc1233814ebb385a2a991c1fb88c97b344267281e173fea7d9acd3f9caf969d6";
+    };
+  };
 
-   nixUnstable = nix;
-   /*
-   nixUnstable = lib.lowPrio (common rec {
-     name = "nix-1.10pre4212_e12cf82";
-      src = fetchurl {
-        url = "http://hydra.nixos.org/build/24982847/download/4/${name}.tar.xz";
-        sha256 = "4165db0ea9bb6b5cd96d294348299f20ac045fc18db680104ff98fe9ac893f72";
-      };
-   });
-   */
+  nixUnstable = lib.lowPrio (common rec {
+    name = "nix-1.12pre4523_3b81b26";
+    src = fetchurl {
+      url = "http://hydra.nixos.org/build/33598573/download/4/${name}.tar.xz";
+      sha256 = "0469zv09m85824w4vqj2ag0nciq51xvrvsys7bd5v4nrxihk9991";
+    };
+  });
 
 }

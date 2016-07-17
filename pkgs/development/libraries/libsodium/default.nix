@@ -1,14 +1,16 @@
 { stdenv, fetchurl }:
 
 stdenv.mkDerivation rec {
-  name = "libsodium-1.0.3";
+  name = "libsodium-1.0.10";
 
   src = fetchurl {
     url = "https://download.libsodium.org/libsodium/releases/${name}.tar.gz";
-    sha256 = "120jkda2q58p0n68banh64vsfm3hgqnacagj425d218cr4ycdkyb";
+    sha256 = "1gn45g956lyz8l6iq187yc6l627vyivyp8qc5dkr6dnhdnlqddvi";
   };
 
-  NIX_LDFLAGS = stdenv.lib.optionalString stdenv.cc.isGNU "-lssp";
+  outputs = [ "dev" "out" ];
+
+  enableParallelBuilding = true;
 
   doCheck = true;
 

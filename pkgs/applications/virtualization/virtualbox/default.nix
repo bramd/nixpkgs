@@ -1,6 +1,6 @@
 { stdenv, fetchurl, lib, iasl, dev86, pam, libxslt, libxml2, libX11, xproto, libXext
 , libXcursor, libXmu, qt4, libIDL, SDL, libcap, zlib, libpng, glib, kernel, lvm2
-, which, alsaLib, curl, libvpx, gawk, nettools
+, which, alsaLib, curl, libvpx, gawk, nettools, dbus
 , xorriso, makeself, perl, pkgconfig, nukeReferences
 , javaBindings ? false, jdk ? null
 , pythonBindings ? false, python ? null
@@ -14,7 +14,11 @@ with stdenv.lib;
 let
   buildType = "release";
 
-  version = "5.0.2"; # changes ./guest-additions as well
+  # When changing this, update ./guest-additions and the extpack
+  # revision/hash as well. See
+  # http://download.virtualbox.org/virtualbox/${version}/SHA256SUMS
+  # for hashes.
+  version = "5.0.20";
 
   forEachModule = action: ''
     for mod in \
@@ -29,29 +33,28 @@ let
           "$mod/Module.symvers"
       fi
       INSTALL_MOD_PATH="$out" INSTALL_MOD_DIR=misc \
-      make -C "$MODULES_BUILD_DIR" DEPMOD=/do_not_use_depmod \
+      make -j $NIX_BUILD_CORES -C "$MODULES_BUILD_DIR" DEPMOD=/do_not_use_depmod \
         "M=\$(PWD)/$mod" BUILD_TYPE="${buildType}" ${action}
     done
   '';
 
   # See https://github.com/NixOS/nixpkgs/issues/672 for details
-  extpackRevision = "101573";
+  extpackRevision = "106931";
   extensionPack = requireFile rec {
     name = "Oracle_VM_VirtualBox_Extension_Pack-${version}-${extpackRevision}.vbox-extpack";
     # IMPORTANT: Hash must be base16 encoded because it's used as an input to
     # VBoxExtPackHelperApp!
-    # Tip: see http://dlc.sun.com.edgesuite.net/virtualbox/4.3.10/SHA256SUMS
-    sha256 = "c357e36368883df821ed092d261890a95c75e50422b75848c40ad20984086a7a";
+    sha256 = "11f40842a56ebb17da1bbc82a21543e66108a5330ebd54ded68038a990aa071b";
     message = ''
       In order to use the extension pack, you need to comply with the VirtualBox Personal Use
-      and Evaluation License (PUEL) by downloading the related binaries from:
+      and Evaluation License (PUEL) available at:
 
-      https://www.virtualbox.org/wiki/Downloads
+      https://www.virtualbox.org/wiki/VirtualBox_PUEL
 
-      Once you have downloaded the file, please use the following command and re-run the
-      installation:
+      Once you have read and if you agree with the license, please use the
+      following command and re-run the installation:
 
-      nix-prefetch-url file://${name}
+      nix-prefetch-url http://download.virtualbox.org/virtualbox/${version}/${name}
     '';
   };
 
@@ -60,7 +63,7 @@ in stdenv.mkDerivation {
 
   src = fetchurl {
     url = "http://download.virtualbox.org/virtualbox/${version}/VirtualBox-${version}.tar.bz2";
-    sha256 = "f290c220d62af2a7fdabb1934c1a0b924b68968a236bb2509bcb507d2c19485e";
+    sha256 = "0asc5n9an2dzvrd4isjz3vac2h0sm6dbzvrc36hn8ag2ma3hg75g";
   };
 
   buildInputs =
@@ -78,20 +81,30 @@ in stdenv.mkDerivation {
         -e 's@MKISOFS --version@MKISOFS -version@' \
         -e 's@PYTHONDIR=.*@PYTHONDIR=${if pythonBindings then python else ""}@' \
         -i configure
-    ls kBuild/bin/linux.x86/k* tools/linux.x86/bin/* | xargs -n 1 patchelf --set-interpreter ${stdenv.glibc}/lib/ld-linux.so.2
-    ls kBuild/bin/linux.amd64/k* tools/linux.amd64/bin/* | xargs -n 1 patchelf --set-interpreter ${stdenv.glibc}/lib/ld-linux-x86-64.so.2
+    ls kBuild/bin/linux.x86/k* tools/linux.x86/bin/* | xargs -n 1 patchelf --set-interpreter ${stdenv.glibc.out}/lib/ld-linux.so.2
+    ls kBuild/bin/linux.amd64/k* tools/linux.amd64/bin/* | xargs -n 1 patchelf --set-interpreter ${stdenv.glibc.out}/lib/ld-linux-x86-64.so.2
     find . -type f -iname '*makefile*' -exec sed -i -e 's/depmod -a/:/g' {} +
     sed -i -e '
-      s@"libasound.so.2"@"${alsaLib}/lib/libasound.so.2"@g
+      s@"libdbus-1\.so\.3"@"${dbus.lib}/lib/libdbus-1.so.3"@g
+      s@"libasound\.so\.2"@"${alsaLib.out}/lib/libasound.so.2"@g
       ${optionalString pulseSupport ''
-      s@"libpulse.so.0"@"${libpulseaudio}/lib/libpulse.so.0"@g
+      s@"libpulse\.so\.0"@"${libpulseaudio.out}/lib/libpulse.so.0"@g
       ''}
-    ' src/VBox/Main/xml/Settings.cpp src/VBox/Devices/Audio/{alsa,pulse}_stubs.c
+    ' src/VBox/Main/xml/Settings.cpp \
+      src/VBox/Devices/Audio/{alsa,pulse}_stubs.c \
+      include/VBox/dbus-calls.h
     export USER=nix
     set +x
   '';
 
-  patches = optional enableHardening ./hardened.patch;
+  patches = optional enableHardening ./hardened.patch
+    ++ [
+      (fetchurl rec {
+        name = "fix-detect-gcc-5.4.patch";
+        url = "https://bugs.debian.org/cgi-bin/bugreport.cgi?att=1;bug=827193;filename=${name};msg=5";
+        sha256 = "0y6v5dc6fqj9iv27cl8q2g87v1kxg19129mpas4vjg7g0529v4g9";
+      })
+    ];
 
   postPatch = ''
     sed -i -e 's|/sbin/ifconfig|${nettools}/bin/ifconfig|' \
@@ -127,7 +140,7 @@ in stdenv.mkDerivation {
       ${optionalString (!pulseSupport) "--disable-pulse"} \
       ${optionalString (!enableHardening) "--disable-hardening"} \
       --disable-kmods --with-mkisofs=${xorriso}/bin/xorrisofs
-    sed -e 's@PKG_CONFIG_PATH=.*@PKG_CONFIG_PATH=${libIDL}/lib/pkgconfig:${glib}/lib/pkgconfig ${libIDL}/bin/libIDL-config-2@' \
+    sed -e 's@PKG_CONFIG_PATH=.*@PKG_CONFIG_PATH=${libIDL}/lib/pkgconfig:${glib.dev}/lib/pkgconfig ${libIDL}/bin/libIDL-config-2@' \
         -i AutoConfig.kmk
     sed -e 's@arch/x86/@@' \
         -i Config.kmk
@@ -138,7 +151,7 @@ in stdenv.mkDerivation {
 
   buildPhase = ''
     source env.sh
-    kmk BUILD_TYPE="${buildType}"
+    kmk -j $NIX_BUILD_CORES BUILD_TYPE="${buildType}"
     ${forEachModule "modules"}
   '';
 
@@ -188,6 +201,9 @@ in stdenv.mkDerivation {
   '';
 
   passthru = { inherit version; /* for guest additions */ };
+
+  # Workaround for https://github.com/NixOS/patchelf/issues/93 (can be removed once this issue is addressed)
+  dontPatchELF = true;
 
   meta = {
     description = "PC emulator";

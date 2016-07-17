@@ -1,18 +1,17 @@
-{ stdenv, coreutils, fetchgit, m4, libtool, clang, ghcWithPackages }:
+# Note: The Haskell package set used for building UHC is
+# determined in the file top-level/haskell-packages.nix.
+{ stdenv, coreutils, m4, libtool, clang, ghcWithPackages, fetchFromGitHub }:
 
-let wrappedGhc = ghcWithPackages (hpkgs: with hpkgs; [shuffle hashable mtl network uhc-util uulib] );
+let wrappedGhc = ghcWithPackages (hpkgs: with hpkgs; [fgl vector syb uulib network binary hashable uhc-util mtl transformers directory containers array process filepath shuffle uuagc] );
 in stdenv.mkDerivation rec {
-  # Important:
-  # The commits "Fixate/tag v..." are the released versions.
-  # Ignore the "bumped version to ...." commits, they do not
-  # correspond to releases.
-  version = "1.1.9.1.20150611";
+  version = "1.1.9.4";
   name = "uhc-${version}";
 
-  src = fetchgit {
-    url = "https://github.com/UU-ComputerScience/uhc.git";
-    rev = "b80098e07d12900f098ea964b1d2b3f38e5c9900";
-    sha256 = "14qg1fd9pgbczcmn5ggkd9674qadx1izmz8363ps7c207dg94f9x";
+  src = fetchFromGitHub {
+    owner = "UU-ComputerScience";
+    repo = "uhc";
+    rev = "v${version}";
+    sha256 = "1s84csk6zgzj09igxgdza7gb52jdn3jsr8lygl5xplshv8yzl34n";
   };
 
   postUnpack = "sourceRoot=\${sourceRoot}/EHC";
@@ -41,7 +40,7 @@ in stdenv.mkDerivation rec {
   meta = with stdenv.lib; {
     homepage = "http://www.cs.uu.nl/wiki/UHC";
     description = "Utrecht Haskell Compiler";
-    maintainers = [ maintainers.phausmann ];
+    maintainers = [ maintainers.phile314 ];
 
     # UHC i686 support is broken, see
     # https://github.com/UU-ComputerScience/uhc/issues/52
@@ -50,6 +49,5 @@ in stdenv.mkDerivation rec {
     # On Darwin, the GNU libtool is used, which does not
     # support the -static flag and thus breaks the build.
     platforms = ["x86_64-linux"];
-    broken = true; # https://github.com/UU-ComputerScience/uhc/issues/60
   };
 }

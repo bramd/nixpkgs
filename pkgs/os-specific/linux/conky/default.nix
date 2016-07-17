@@ -1,16 +1,23 @@
 { stdenv, fetchFromGitHub, pkgconfig, cmake
 
 # dependencies
-, glib
+, glib, libXinerama
 
 # optional features without extra dependencies
 , mpdSupport          ? true
 , ibmSupport          ? true # IBM/Lenovo notebooks
 
 # optional features with extra dependencies
+
+# ouch, this is ugly, but this gives the man page
+, docsSupport         ? true, docbook2x, libxslt ? null
+                            , man ? null, less ? null
+                            , docbook_xsl ? null , docbook_xml_dtd_44 ? null
+
 , ncursesSupport      ? true      , ncurses       ? null
-, x11Support          ? true      , x11           ? null
+, x11Support          ? true      , xlibsWrapper           ? null
 , xdamageSupport      ? x11Support, libXdamage    ? null
+, doubleBufferSupport ? x11Support
 , imlib2Support       ? x11Support, imlib2        ? null
 
 , luaSupport          ? true      , lua           ? null
@@ -27,9 +34,13 @@
 , libxml2 ? null
 }:
 
+assert docsSupport         -> docbook2x != null && libxslt != null
+                           && man != null && less != null
+                           && docbook_xsl != null && docbook_xml_dtd_44 != null;
+
 assert ncursesSupport      -> ncurses != null;
 
-assert x11Support          -> x11 != null;
+assert x11Support          -> xlibsWrapper != null;
 assert xdamageSupport      -> x11Support && libXdamage != null;
 assert imlib2Support       -> x11Support && imlib2     != null;
 assert luaSupport          -> lua != null;
@@ -51,20 +62,35 @@ with stdenv.lib;
 
 stdenv.mkDerivation rec {
   name = "conky-${version}";
-  version = "1.10.0";
+  version = "1.10.3";
 
   src = fetchFromGitHub {
     owner = "brndnmtthws";
     repo = "conky";
     rev = "v${version}";
-    sha256 = "00vyrf72l54j3majqmn6vykqvvb15vygsaby644nsb5vpma6b1cn";
+    sha256 = "0sa2jl159jk5p2hr37adwq84m0ynva7v87qrwj1xv0kw8l4qzhjs";
   };
+
+  postPatch = ''
+    sed -i -e '/include.*CheckIncludeFile)/i include(CheckIncludeFiles)' \
+      cmake/ConkyPlatformChecks.cmake
+  '' + optionalString docsSupport ''
+    # Drop examples, since they contain non-ASCII characters that break docbook2x :(
+    sed -i 's/ Example: .*$//' doc/config_settings.xml
+
+    substituteInPlace cmake/Docbook.cmake \
+      --replace "http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl" "${docbook_xsl}/xml/xsl/docbook/html/docbook.xsl"
+    substituteInPlace doc/docs.xml \
+      --replace "http://www.oasis-open.org/docbook/xml/4.4/docbookx.dtd" "${docbook_xml_dtd_44}/xml/dtd/docbook/docbookx.dtd"
+    substituteInPlace cmake/Conky.cmake --replace "#set(RELEASE true)" "set(RELEASE true)"
+  '';
 
   NIX_LDFLAGS = "-lgcc_s";
 
-  buildInputs = [ pkgconfig glib cmake ]
+  buildInputs = [ pkgconfig glib cmake libXinerama ]
+    ++ optionals docsSupport        [ docbook2x libxslt man less ]
     ++ optional  ncursesSupport     ncurses
-    ++ optional  x11Support         x11
+    ++ optional  x11Support         xlibsWrapper
     ++ optional  xdamageSupport     libXdamage
     ++ optional  imlib2Support      imlib2
     ++ optional  luaSupport         lua
@@ -77,6 +103,7 @@ stdenv.mkDerivation rec {
     ;
 
   cmakeFlags = [ "-DCMAKE_BUILD_TYPE=Release" ]
+    ++ optional docsSupport         "-DMAINTAINER_MODE=ON"
     ++ optional curlSupport         "-DBUILD_CURL=ON"
     ++ optional (!ibmSupport)       "-DBUILD_IBM=OFF"
     ++ optional imlib2Support       "-DBUILD_IMLIB2=ON"
@@ -87,6 +114,7 @@ stdenv.mkDerivation rec {
     ++ optional rssSupport          "-DBUILD_RSS=ON"
     ++ optional (!x11Support)       "-DBUILD_X11=OFF"
     ++ optional xdamageSupport      "-DBUILD_XDAMAGE=ON"
+    ++ optional doubleBufferSupport "-DBUILD_XDBE=ON"
     ++ optional weatherMetarSupport "-DBUILD_WEATHER_METAR=ON"
     ++ optional weatherXoapSupport  "-DBUILD_WEATHER_XOAP=ON"
     ++ optional wirelessSupport     "-DBUILD_WLAN=ON"
@@ -97,5 +125,6 @@ stdenv.mkDerivation rec {
     description = "Advanced, highly configurable system monitor based on torsmo";
     maintainers = [ maintainers.guibert ];
     license = licenses.gpl3Plus;
+    platforms = platforms.linux;
   };
 }

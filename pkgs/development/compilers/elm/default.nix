@@ -1,5 +1,11 @@
 { lib, stdenv, buildEnv, haskell, nodejs, fetchurl, fetchpatch, makeWrapper }:
 
+# To update:
+# 1) Update versions in ./update-elm.rb and run it.
+# 2) Checkout elm-reactor and run `elm-package install -y` inside.
+# 3) Run ./elm2nix.rb in elm-reactor's directory.
+# 4) Move the resulting 'package.nix' to 'packages/elm-reactor-elm.nix'.
+
 let
   makeElmStuff = deps:
     let json = builtins.toJSON (lib.mapAttrs (name: info: info.version) deps);
@@ -34,7 +40,7 @@ let
       EOF
     '' + lib.concatStrings cmds;
 
-  hsPkgs = haskell.packages.ghc7102.override {
+  hsPkgs = haskell.packages.ghc801.override {
     overrides = self: super:
       let hlib = haskell.lib;
           elmRelease = import ./packages/release.nix { inherit (self) callPackage; };
@@ -43,28 +49,29 @@ let
 
             elm-reactor = hlib.overrideCabal elmPkgs'.elm-reactor (drv: {
               buildTools = drv.buildTools or [] ++ [ self.elm-make ];
-              patches = [ (fetchpatch {
-                url = "https://github.com/elm-lang/elm-reactor/commit/ca4d91d3fc7c6f72aa802d79fd1563ab5f3c4f2c.patch";
-                sha256 = "0cjcv5rvrq7v1j8n8w87ljgza522cm32cy4n4rq5ysjq3qnaxwcq";
-              }) ];
               preConfigure = makeElmStuff (import ./packages/elm-reactor-elm.nix);
-            });
-
-            elm-package = hlib.appendPatch elmPkgs'.elm-package (fetchpatch {
-              url = "https://github.com/elm-lang/elm-package/commit/af517f2ffe15f8ec1d8c38f01ce188bbdefea47a.patch";
-              sha256 = "1l66i4qssp0mcq8yypcn1ps3n2bskyfiqf0qr8gan6wz3znafpy9";
             });
 
             elm-repl = hlib.overrideCabal elmPkgs'.elm-repl (drv: {
               doCheck = false;
               buildTools = drv.buildTools or [] ++ [ makeWrapper ];
               postInstall =
-                let bins = lib.makeSearchPath "bin" [ nodejs self.elm-make ];
+                let bins = lib.makeBinPath [ nodejs self.elm-make ];
                 in ''
                   wrapProgram $out/bin/elm-repl \
                     --prefix PATH ':' ${bins}
                 '';
             });
+
+            /*
+            This is not a core Elm package, and it's hosted on GitHub.
+            To update, run:
+
+                cabal2nix --jailbreak --revision refs/tags/foo http://github.com/avh4/elm-format > packages/elm-format.nix
+
+            where foo is a tag for a new version, for example "0.3.1-alpha".
+            */
+            elm-format = self.callPackage ./packages/elm-format.nix { };
 
           };
       in elmPkgs // {

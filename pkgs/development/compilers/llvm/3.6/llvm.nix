@@ -12,6 +12,8 @@
 , version
 , zlib
 , compiler-rt_src
+, debugVersion ? false
+, enableSharedLibraries ? !stdenv.isDarwin
 }:
 
 let
@@ -38,14 +40,15 @@ in stdenv.mkDerivation rec {
   '';
 
   cmakeFlags = with stdenv; [
-    "-DCMAKE_BUILD_TYPE=Release"
+    "-DCMAKE_BUILD_TYPE=${if debugVersion then "Debug" else "Release"}"
     "-DLLVM_BUILD_TESTS=ON"
     "-DLLVM_ENABLE_FFI=ON"
     "-DLLVM_ENABLE_RTTI=ON"
-  ] ++ stdenv.lib.optionals (!isDarwin) [
+  ] ++ stdenv.lib.optional enableSharedLibraries
     "-DBUILD_SHARED_LIBS=ON"
-    "-DLLVM_BINUTILS_INCDIR=${binutils}/include"
-  ] ++ stdenv.lib.optionals ( isDarwin) [
+    ++ stdenv.lib.optional (!isDarwin)
+    "-DLLVM_BINUTILS_INCDIR=${binutils.dev}/include"
+    ++ stdenv.lib.optionals ( isDarwin) [
     "-DCMAKE_CXX_FLAGS=-stdlib=libc++"
     "-DCAN_TARGET_i386=false"
   ];
@@ -54,10 +57,6 @@ in stdenv.mkDerivation rec {
     rm -fR $out
 
     paxmark m bin/{lli,llvm-rtdyld}
-
-    paxmark m unittests/ExecutionEngine/JIT/JITTests
-    paxmark m unittests/ExecutionEngine/MCJIT/MCJITTests
-    paxmark m unittests/Support/SupportTests
   '';
 
   enableParallelBuilding = true;

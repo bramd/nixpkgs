@@ -1,7 +1,7 @@
-{ stdenv, lib, fetchurl, tzdata, iana_etc, go_1_4, runCommand
+{ stdenv, lib, fetchFromGitHub, tzdata, iana_etc, go_1_4, runCommand
 , perl, which, pkgconfig, patch
 , pcre
-, Security }:
+, Security, Foundation }:
 
 let
   goBootstrap = runCommand "go-bootstrap" {} ''
@@ -15,17 +15,21 @@ in
 
 stdenv.mkDerivation rec {
   name = "go-${version}";
-  version = "1.5.1";
+  version = "1.5.4";
 
-  src = fetchurl {
-    url = "https://github.com/golang/go/archive/go${version}.tar.gz";
-    sha256 = "1xd1nd1li7pdl72vq8zkh6m7ms3ajgyqz9a5d61gagm0cgj8zilz";
+  src = fetchFromGitHub {
+    owner = "golang";
+    repo = "go";
+    rev = "go${version}";
+    sha256 = "1lvk9awmkjbz5z4snv3q3b3r7ijfz97kig2wkqz6jmr7b0lp1fcy";
   };
 
   # perl is used for testing go vet
   nativeBuildInputs = [ perl which pkgconfig patch ];
   buildInputs = [ pcre ];
-  propagatedBuildInputs = lib.optional stdenv.isDarwin Security;
+  propagatedBuildInputs = lib.optionals stdenv.isDarwin [
+    Security Foundation
+  ];
 
   # I'm not sure what go wants from its 'src', but the go installation manual
   # describes an installation keeping the src.
@@ -67,18 +71,31 @@ stdenv.mkDerivation rec {
   '' + lib.optionalString stdenv.isLinux ''
     sed -i 's,/usr/share/zoneinfo/,${tzdata}/share/zoneinfo/,' src/time/zoneinfo_unix.go
   '' + lib.optionalString stdenv.isDarwin ''
+    substituteInPlace src/race.bash --replace \
+      "sysctl machdep.cpu.extfeatures | grep -qv EM64T" true
+    sed -i 's,strings.Contains(.*sysctl.*,true {,' src/cmd/dist/util.go
     sed -i 's,"/etc","'"$TMPDIR"'",' src/os/os_test.go
     sed -i 's,/_go_os_test,'"$TMPDIR"'/_go_os_test,' src/os/path_test.go
+    sed -i '/TestCgoLookupIP/areturn' src/net/cgo_unix_test.go
+    sed -i '/TestChdirAndGetwd/areturn' src/os/os_test.go
     sed -i '/TestRead0/areturn' src/os/os_test.go
+    sed -i '/TestNohup/areturn' src/os/signal/signal_test.go
     sed -i '/TestSystemRoots/areturn' src/crypto/x509/root_darwin_test.go
+
+    sed -i '/TestGoInstallRebuildsStalePackagesInOtherGOPATH/areturn' src/cmd/go/go_test.go
+    sed -i '/TestBuildDashIInstallsDependencies/areturn' src/cmd/go/go_test.go
+
+    sed -i '/TestDisasmExtld/areturn' src/cmd/objdump/objdump_test.go
 
     touch $TMPDIR/group $TMPDIR/hosts $TMPDIR/passwd
   '';
 
   patches = [
-    ./cacert-1.5.patch
     ./remove-tools-1.5.patch
-  ];
+  ]
+  # -ldflags=-s is required to compile on Darwin, see
+  # https://github.com/golang/go/issues/11994
+  ++ stdenv.lib.optional stdenv.isDarwin ./strip.patch;
 
   GOOS = if stdenv.isDarwin then "darwin" else "linux";
   GOARCH = if stdenv.isDarwin then "amd64"

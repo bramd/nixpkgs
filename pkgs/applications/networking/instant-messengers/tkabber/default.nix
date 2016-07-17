@@ -1,5 +1,5 @@
 { stdenv, fetchurl, tcl, tk, tcllib, tcltls, tclgpg
-, bwidget, makeWrapper, x11
+, bwidget, makeWrapper, xlibsWrapper
 , withSitePlugins ? true
 , theme ? null
 }:
@@ -40,11 +40,7 @@ let
   } // removeAttrs attrs [ "name" "sha256" ]);
 
 in mkTkabber (main // {
-  postPatch = ''
-    substituteInPlace login.tcl --replace \
-      "custom::defvar loginconf(sslcacertstore) \"\"" \
-      "custom::defvar loginconf(sslcacertstore) \$env(SSL_CERT_FILE)"
-  '' + optionalString (theme != null) ''
+  postPatch = optionalString (theme != null) ''
     themePath="$out/share/doc/tkabber/examples/xrdb/${theme}.xrdb"
     sed -i '/^if.*load_default_xrdb/,/^}$/ {
       s@option readfile \(\[fullpath [^]]*\]\)@option readfile "'"$themePath"'"@
@@ -55,14 +51,14 @@ in mkTkabber (main // {
     for prog in $out/bin/*; do
       wrapProgram "$prog" \
         --prefix PATH : "${tk}/bin" \
-        --set TCLLIBPATH '"${tclLibPaths}"' \
+        --set TCLLIBPATH '${tclLibPaths}' \
         ${optionalString withSitePlugins ''
         --set TKABBER_SITE_PLUGINS '${mkTkabber plugins}/share/tkabber-plugins'
         ''}
     done
   '';
 
-  buildInputs = [ tcl tk x11 makeWrapper ] ++ tclLibraries;
+  buildInputs = [ tcl tk xlibsWrapper makeWrapper ] ++ tclLibraries;
 
   meta = {
     homepage = "http://tkabber.jabber.ru/";

@@ -1,4 +1,5 @@
-{ fetchurl, pkgs, stdenv, makeWrapper, qt5, yajl, libzip, hunspell, boost, lua5_1, luafilesystem, luazip, lrexlib, luasqlite3 }:
+{ fetchurl, unzip, stdenv, makeWrapper, qtbase, yajl, libzip, hunspell
+, boost, lua5_1, luafilesystem, luazip, lrexlib, luasqlite3, qmakeHook }:
 
 stdenv.mkDerivation rec {
   name = "mudlet-${version}";
@@ -9,9 +10,12 @@ stdenv.mkDerivation rec {
     sha256 = "08fhqd323kgz5s17ac5z9dhkjxcmwvcmvhzy0x1vw4rayhijfrd7";
   };
 
-  buildInputs = [ pkgs.unzip qt5.base lua5_1 hunspell libzip yajl boost makeWrapper luafilesystem luazip lrexlib luasqlite3 ];
+  buildInputs = [
+    unzip qtbase lua5_1 hunspell libzip yajl boost makeWrapper
+    luafilesystem luazip lrexlib luasqlite3 qmakeHook
+  ];
 
-  configurePhase = "cd src && qmake";
+  preConfigure = "cd src";
 
   installPhase = let
     luaZipPath = "${luazip}/lib/lua/5.1/?.so";
@@ -36,5 +40,6 @@ stdenv.mkDerivation rec {
     maintainers = [ stdenv.lib.maintainers.wyvie ];
     platforms = stdenv.lib.platforms.linux;
     license = stdenv.lib.licenses.gpl2;
+    broken = true;
   };
 }

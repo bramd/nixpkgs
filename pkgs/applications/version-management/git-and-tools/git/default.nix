@@ -1,4 +1,5 @@
-{ fetchurl, stdenv, curl, openssl, zlib, expat, perl, python, gettext, cpio, gnugrep, gzip
+{ fetchurl, stdenv, curl, openssl, zlib, expat, perl, python, gettext, cpio
+, gnugrep, gzip, openssh
 , asciidoc, texinfo, xmlto, docbook2x, docbook_xsl, docbook_xml_dtd_45
 , libxslt, tcl, tk, makeWrapper, libiconv
 , svnSupport, subversionClient, perlLibs, smtpPerlLibs
@@ -9,7 +10,7 @@
 }:
 
 let
-  version = "2.5.1";
+  version = "2.9.1";
   svn = subversionClient.override { perlBindings = true; };
 in
 
@@ -18,23 +19,35 @@ stdenv.mkDerivation {
 
   src = fetchurl {
     url = "https://www.kernel.org/pub/software/scm/git/git-${version}.tar.xz";
-    sha256 = "03r2shbya0g3adya336jpc6kcn2s0fmn5p5bs1s8q6r232qvgkmk";
+    sha256 = "18l2jb4bkp9ljz6p2aviwzxqyzza9z3v6h1pnkz7kjf1fay61zp8";
   };
 
   patches = [
     ./docbook2texi.patch
     ./symlinks-in-bin.patch
-    ./cert-path.patch
+    ./git-sh-i18n.patch
+    ./ssh-path.patch
     ./ssl-cert-file.patch
   ];
 
-  buildInputs = [curl openssl zlib expat gettext cpio makeWrapper libiconv]
+  postPatch = ''
+    for x in connect.c git-gui/lib/remote_add.tcl ; do
+      substituteInPlace "$x" \
+        --subst-var-by ssh "${openssh}/bin/ssh"
+    done
+  '';
+
+  buildInputs = [curl openssl zlib expat gettext cpio makeWrapper libiconv perl]
     ++ stdenv.lib.optionals withManual [ asciidoc texinfo xmlto docbook2x
          docbook_xsl docbook_xml_dtd_45 libxslt ]
     ++ stdenv.lib.optionals guiSupport [tcl tk];
 
   # required to support pthread_cancel()
-  NIX_LDFLAGS = stdenv.lib.optionalString (!stdenv.isDarwin) "-lgcc_s";
+  NIX_LDFLAGS = stdenv.lib.optionalString (!stdenv.cc.isClang) "-lgcc_s"
+              + stdenv.lib.optionalString (stdenv.isFreeBSD) "-lthr";
+
+  # without this, git fails when trying to check for /etc/gitconfig existence
+  propagatedSandboxProfile = stdenv.lib.sandbox.allowDirectoryList "/etc";
 
   makeFlags = "prefix=\${out} sysconfdir=/etc/ PERL_PATH=${perl}/bin/perl SHELL_PATH=${stdenv.shell} "
       + (if pythonSupport then "PYTHON_PATH=${python}/bin/python" else "NO_PYTHON=1")
@@ -81,6 +94,10 @@ stdenv.mkDerivation {
              -e 's|	perl -e|	${perl}/bin/perl -e|g' \
              $out/libexec/git-core/{git-am,git-submodule}
 
+      # Fix references to gettext.
+      substituteInPlace $out/libexec/git-core/git-sh-i18n \
+          --subst-var-by gettext ${gettext}
+
       # gzip (and optionally bzip2, xz, zip) are runtime dependencies for
       # gitweb.cgi, need to patch so that it's found
       sed -i -e "s|'compressor' => \['gzip'|'compressor' => ['${gzip}/bin/gzip'|" \
@@ -95,12 +112,12 @@ stdenv.mkDerivation {
 
       ''# wrap git-svn
         gitperllib=$out/lib/perl5/site_perl
-        for i in ${builtins.toString perlLibs} ${svn}; do
+        for i in ${builtins.toString perlLibs} ${svn.out}; do
           gitperllib=$gitperllib:$i/lib/perl5/site_perl
         done
         wrapProgram $out/libexec/git-core/git-svn     \
                      --set GITPERLLIB "$gitperllib"   \
-                     --prefix PATH : "${svn}/bin" ''
+                     --prefix PATH : "${svn.out}/bin" ''
        else '' # replace git-svn by notification script
         notSupported $out/libexec/git-core/git-svn
        '')
@@ -140,7 +157,7 @@ stdenv.mkDerivation {
   meta = {
     homepage = http://git-scm.com/;
     description = "Distributed version control system";
-    license = stdenv.lib.licenses.gpl2Plus;
+    license = stdenv.lib.licenses.gpl2;
 
     longDescription = ''
       Git, a popular distributed version control system designed to
@@ -148,6 +165,6 @@ stdenv.mkDerivation {
     '';
 
     platforms = stdenv.lib.platforms.all;
-    maintainers = with stdenv.lib.maintainers; [ simons the-kenny wmertens ];
+    maintainers = with stdenv.lib.maintainers; [ peti the-kenny wmertens ];
   };
 }

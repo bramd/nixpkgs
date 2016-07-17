@@ -1,28 +1,14 @@
 { stdenv, fetchFromGitHub, docutils, python }:
 
-let version = "0.9.0"; in
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
   name = "git-hub-${version}";
+  version = "0.10";
 
   src = fetchFromGitHub {
-    sha256 = "0c4kq4a906lr8nzway7qh0560n2ydvidh9rlffh44902rd48kp0h";
+    sha256 = "0zy1g6zzv6cw8ffj8ffm28qa922fys2826n5813p8icqypi04y0k";
     rev = "v${version}";
     repo = "git-hub";
-    owner = "sociomantic";
-  };
-
-  meta = with stdenv.lib; {
-    inherit version;
-    description = "Git command line interface to GitHub";
-    longDescription = ''
-      A simple command line interface to GitHub, enabling most useful GitHub
-      tasks (like creating and listing pull request or issues) to be accessed
-      directly through the Git command line.
-    '';
-    homepage = https://github.com/sociomantic/git-hub;
-    license = licenses.gpl3Plus;
-    platforms = with platforms; linux;
-    maintainers = with maintainers; [ nckx ];
+    owner = "sociomantic-tsunami";
   };
 
   buildInputs = [ python ];
@@ -35,10 +21,23 @@ stdenv.mkDerivation {
 
   enableParallelBuilding = true;
 
-  installFlags = "prefix=$(out)";
+  installFlags = [ "prefix=$(out)" ];
 
   postInstall = ''
     # Remove inert ftdetect vim plugin and a README that's a man page subset:
     rm -r $out/share/{doc,vim}
   '';
+
+  meta = with stdenv.lib; {
+    inherit (src.meta) homepage;
+    description = "Git command line interface to GitHub";
+    longDescription = ''
+      A simple command line interface to GitHub, enabling most useful GitHub
+      tasks (like creating and listing pull request or issues) to be accessed
+      directly through the Git command line.
+    '';
+    license = licenses.gpl3Plus;
+    platforms = platforms.linux;
+    maintainers = with maintainers; [ nckx ];
+  };
 }

@@ -1,5 +1,7 @@
-{ stdenv, fetchurl, cmake, gettext, gtk2, gtk3, kdelibs
-, libxcb, libpthreadstubs, libXdmcp, pkgconfig, glib, gdk_pixbuf }:
+{ stdenv, fetchurl, automoc4, cmake, gettext, perl, pkgconfig
+, gtk2, gtk3, kdelibs, libxcb, libpthreadstubs, libXdmcp
+, glib, gdk_pixbuf
+}:
 
 stdenv.mkDerivation {
   name = "kde-gtk-config-2.2.1";
@@ -9,18 +11,10 @@ stdenv.mkDerivation {
   };
 
   buildInputs = [
-    cmake
-    gdk_pixbuf
-    gettext
-    glib
-    gtk2
-    gtk3
-    kdelibs
-    libxcb
-    libpthreadstubs
-    libXdmcp
-    pkgconfig
+    gdk_pixbuf glib gtk2 gtk3 kdelibs libxcb libpthreadstubs libXdmcp
   ];
+
+  nativeBuildInputs = [ automoc4 cmake gettext perl pkgconfig ];
 
   patches = [
     ./kde-gtk-config-2.2.1-install-paths.patch
@@ -28,9 +22,9 @@ stdenv.mkDerivation {
   ];
 
   cmakeFlags = ''
-    -DGTK2_GLIBCONFIG_INCLUDE_DIR=${glib}/lib/glib-2.0/include
-    -DGTK2_GDKCONFIG_INCLUDE_DIR=${gtk2}/lib/gtk-2.0/include
-    -DGTK2_INCLUDE_DIRS=${gtk2}/include/gtk-2.0
+    -DGTK2_GLIBCONFIG_INCLUDE_DIR=${glib.out}/lib/glib-2.0/include
+    -DGTK2_GDKCONFIG_INCLUDE_DIR=${gtk2.out}/lib/gtk-2.0/include
+    -DGTK2_INCLUDE_DIRS=${gtk2.dev}/include/gtk-2.0
     -DKDE4_LIBEXEC_INSTALL_DIR=lib/kde4/libexec
   '';
 

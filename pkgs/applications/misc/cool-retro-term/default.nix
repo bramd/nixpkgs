@@ -1,4 +1,5 @@
-{ stdenv, fetchgit, makeWrapper, qt5, qmltermwidget }:
+{ stdenv, fetchgit, makeQtWrapper, qtbase, qtquick1, qmltermwidget,
+qtquickcontrols, qtgraphicaleffects, qmakeHook }:
 
 stdenv.mkDerivation rec {
   version = "1.0.0";
@@ -7,7 +8,7 @@ stdenv.mkDerivation rec {
   src = fetchgit {
     url = "https://github.com/Swordfish90/cool-retro-term.git";
     rev = "refs/tags/v${version}";
-    sha256 = "042ikarg6n0c09niwrm987pkzi8xjxxdrg2nqvk9pj7lgmmkkfn1";
+    sha256 = "19sf9ppp2xzwfjwmdqgq9pils4yafsz662n1h65sv5aq04c7gmxs";
     fetchSubmodules = false;
   };
 
@@ -15,19 +16,17 @@ stdenv.mkDerivation rec {
     sed -i -e '/qmltermwidget/d' cool-retro-term.pro
   '';
 
-  buildInputs = [ makeWrapper qt5.base qt5.quick1 qmltermwidget ];
+  buildInputs = [ qtbase qtquick1 qmltermwidget qtquickcontrols qtgraphicaleffects ];
+  nativeBuildInputs = [ makeQtWrapper qmakeHook ];
 
-  configurePhase = "qmake PREFIX=$out";
-
-  installPhase = "make -j $NIX_BUILD_CORES INSTALL_ROOT=$out install";
+  installFlags = [ "INSTALL_ROOT=$(out)" ];
 
   preFixup = ''
     mv $out/usr/share $out/share
     mv $out/usr/bin $out/bin
     rmdir $out/usr
 
-    wrapProgram $out/bin/cool-retro-term \
-      --prefix QML2_IMPORT_PATH : "${qmltermwidget}/lib/qml/"
+    wrapQtProgram $out/bin/cool-retro-term
   '';
 
   enableParallelBuilding = true;

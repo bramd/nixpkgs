@@ -1,6 +1,6 @@
-{ fetchurl, stdenv }:
+{ fetchurl, stdenv, lib }:
 
-assert (!stdenv.isLinux);
+assert !stdenv.isLinux || stdenv ? cross; # TODO: improve on cross
 
 stdenv.mkDerivation rec {
   name = "libiconv-1.14";
@@ -10,16 +10,24 @@ stdenv.mkDerivation rec {
     sha256 = "04q6lgl3kglmmhw59igq1n7v3rp1rpkypl366cy1k1yn2znlvckj";
   };
 
-  patches = if stdenv.isCygwin then [
+  patches = lib.optionals stdenv.isCygwin [
     ./libiconv-1.14-reloc.patch
     ./libiconv-1.14-wchar.patch
-  ] else null;
+  ];
 
+  postPatch =
+    lib.optionalString (stdenv.cross.libc or null == "msvcrt")
+      ''
+        sed '/^_GL_WARN_ON_USE (gets/d' -i srclib/stdio.in.h
+      '';
+
+  configureFlags =
   # On Cygwin, Libtool produces a `.dll.a', which is not a "real" DLL
   # (Windows' linker would need to be used somehow to produce an actual
   # DLL.)  Thus, build the static library too, and this is what Gettext
   # will actually use.
-  configureFlags = if stdenv.isCygwin then [ "--enable-static" ] else null;
+    lib.optional stdenv.isCygwin "--enable-static"
+    ++ lib.optional stdenv.isFreeBSD "--with-pic";
 
   crossAttrs = {
     # Disable stripping to avoid "libiconv.a: Archive has no index" (MinGW).
@@ -41,11 +49,11 @@ stdenv.mkDerivation rec {
     '';
 
     homepage = http://www.gnu.org/software/libiconv/;
-    license = stdenv.lib.licenses.lgpl2Plus;
+    license = lib.licenses.lgpl2Plus;
 
     maintainers = [ ];
 
     # This library is not needed on GNU platforms.
-    hydraPlatforms = stdenv.lib.platforms.cygwin ++ stdenv.lib.platforms.darwin ++ stdenv.lib.platforms.freebsd;
+    hydraPlatforms = with lib.platforms; cygwin ++ darwin ++ freebsd;
   };
 }

@@ -1,14 +1,16 @@
-{ stdenv, fetchurl, perl, gnum4, ncurses, openssl
-, gnused, gawk, makeWrapper
+{ stdenv, fetchurl, fetchFromGitHub, perl, gnum4, ncurses, openssl
+, gnused, gawk, autoconf, libxslt, libxml2, makeWrapper
+, Carbon, Cocoa
 , odbcSupport ? false, unixODBC ? null
-, wxSupport ? true, mesa ? null, wxGTK ? null, xlibs ? null, wxmac ? null
+, wxSupport ? true, mesa ? null, wxGTK ? null, xorg ? null, wxmac ? null
 , javacSupport ? false, openjdk ? null
 , enableHipe ? true
+, enableDebugInfo ? false
 }:
 
 assert wxSupport -> (if stdenv.isDarwin
   then wxmac != null
-  else mesa != null && wxGTK != null && xlibs != null);
+  else mesa != null && wxGTK != null && xorg != null);
 
 assert odbcSupport -> unixODBC != null;
 assert javacSupport ->  openjdk != null;
@@ -18,47 +20,61 @@ with stdenv.lib;
 stdenv.mkDerivation rec {
   name = "erlang-" + version + "${optionalString odbcSupport "-odbc"}"
   + "${optionalString javacSupport "-javac"}";
-  version = "18.0";
+  version = "18.3.4";
 
-  src = fetchurl {
-    url = "http://www.erlang.org/download/otp_src_${version}.tar.gz";
-    sha256 = "1ahi865ii3iqzd00yyn3nrxjb9qa2by9d7ixssvqw8ag9firvdm0";
+  # Minor OTP releases are not always released as tarbals at
+  # http://erlang.org/download/ So we have to download from
+  # github. And for the same reason we can't use a prebuilt manpages
+  # tarball and need to build manpages ourselves.
+  src = fetchFromGitHub {
+    owner = "erlang";
+    repo = "otp";
+    rev = "OTP-${version}";
+    sha256 = "1f8nhybzsdmjvkmkzpjj3wj9jzx8mihlvi6gfp47fxkalansz39h";
   };
 
   buildInputs =
-    [ perl gnum4 ncurses openssl makeWrapper
-    ] ++ optional wxSupport (if stdenv.isDarwin then [ wxmac ] else [ mesa wxGTK xlibs.libX11 ])
-      ++ optional odbcSupport [ unixODBC ]
-      ++ optional javacSupport [ openjdk ];
+    [ perl gnum4 ncurses openssl autoconf libxslt libxml2 makeWrapper
+    ] ++ optionals wxSupport (if stdenv.isDarwin then [ wxmac ] else [ mesa wxGTK xorg.libX11 ])
+      ++ optional odbcSupport unixODBC
+      ++ optional javacSupport openjdk
+      ++ stdenv.lib.optionals stdenv.isDarwin [ Carbon Cocoa ];
 
-  patchPhase = '' sed -i "s@/bin/rm@rm@" lib/odbc/configure erts/configure '';
+  debugInfo = enableDebugInfo;
+
+  rmAndPwdPatch = fetchurl {
+     url = "https://github.com/erlang/otp/commit/98b8650d22e94a5ff839170833f691294f6276d0.patch";
+     sha256 = "0cd5pkqrigiqz6cyma5irqwzn0bi17k371k9vlg8ir31h3zmqfip";
+  };
+
+  envAndCpPatch = fetchurl {
+     url = "https://github.com/binarin/otp/commit/9f9841eb7327c9fe73e84e197fd2965a97b639cf.patch";
+     sha256 = "10h5348p6g279b4q01i5jdqlljww5chcvrx5b4b0dv79pk0p0m9f";
+  };
+
+  patches = [
+    rmAndPwdPatch
+    envAndCpPatch
+  ];
 
   preConfigure = ''
-    export HOME=$PWD/../
-    sed -e s@/bin/pwd@pwd@g -i otp_build
+    ./otp_build autoconf
   '';
 
   configureFlags= [
-    "--with-ssl=${openssl}"
+    "--with-ssl=${openssl.dev}"
   ] ++ optional enableHipe "--enable-hipe"
     ++ optional wxSupport "--enable-wx"
     ++ optional odbcSupport "--with-odbc=${unixODBC}"
     ++ optional javacSupport "--with-javac"
     ++ optional stdenv.isDarwin "--enable-darwin-64bit";
 
-  postInstall = let
-    manpages = fetchurl {
-      url = "http://www.erlang.org/download/otp_doc_man_${version}.tar.gz";
-      sha256 = "0wsnp7sp21ydinwkg3rkazyrs382pdzwra9apikkhs70dv1hwkz4";
-    };
-  in ''
+  # install-docs will generate and install manpages and html docs
+  # (PDFs are generated only when fop is available).
+  installTargets = "install install-docs";
+
+  postInstall = ''
     ln -s $out/lib/erlang/lib/erl_interface*/bin/erl_call $out/bin/erl_call
-    tar xf "${manpages}" -C "$out/lib/erlang"
-    for i in "$out"/lib/erlang/man/man[0-9]/*.[0-9]; do
-      prefix="''${i%/*}"
-      ensureDir "$out/share/man/''${prefix##*/}"
-      ln -s "$i" "$out/share/man/''${prefix##*/}/''${i##*/}erl"
-    done
   '';
 
   # Some erlang bin/ scripts run sed and awk
@@ -67,8 +83,11 @@ stdenv.mkDerivation rec {
     wrapProgram $out/lib/erlang/bin/start_erl --prefix PATH ":" "${gnused}/bin/:${gawk}/bin"
   '';
 
+  setupHook = ./setup-hook.sh;
+
   meta = {
     homepage = "http://www.erlang.org/";
+    downloadPage = "http://www.erlang.org/download.html";
     description = "Programming language used for massively scalable soft real-time systems";
 
     longDescription = ''

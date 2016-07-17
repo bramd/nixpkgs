@@ -25,11 +25,13 @@ in
 
 stdenv.mkDerivation rec {
   name = "openjpeg-${version}";
-  
+
   src = fetchurl {
     url = "mirror://sourceforge/openjpeg.mirror/${version}/openjpeg-${version}.tar.gz";
     inherit sha256;
   };
+
+  outputs = [ "dev" "out" ];
 
   cmakeFlags = [
     "-DCMAKE_INSTALL_NAME_DIR=\${CMAKE_INSTALL_PREFIX}/lib"
@@ -64,7 +66,7 @@ stdenv.mkDerivation rec {
     description = "Open-source JPEG 2000 codec written in C language";
     homepage = http://www.openjpeg.org/;
     license = licenses.bsd2;
-    maintainer = with maintainers; [ codyopel ];
+    maintainers = with maintainers; [ codyopel ];
     platforms = platforms.all;
   };
 }

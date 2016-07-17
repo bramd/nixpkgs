@@ -1,16 +1,17 @@
-{ stdenv, fetchurl, libxslt, kdelibs, kdepimlibs, grantlee, qjson, qca2, libofx, sqlite, gettext, boost }:
+{ stdenv, fetchurl, automoc4, cmake, gettext, perl, pkgconfig, shared_mime_info
+, libxslt, kdelibs, kdepimlibs, grantlee, qjson, qca2, libofx, sqlite, boost }:
 
 stdenv.mkDerivation rec {
-  name = "skrooge-1.10.0";
+  name = "skrooge-1.12.5";
 
   src = fetchurl {
-    url = "http://download.kde.org/stable/skrooge/${name}.tar.bz2";
-    sha256 = "0rsw2xdgws5bvnf3h4hg16liahigcxgaxls7f8hzr9wipxx5xqda";
+    url = "http://download.kde.org/stable/skrooge/${name}.tar.xz";
+    sha256 = "1mnkm0367knh0a65gifr20p42ql9zndw7d6kmbvfshvpfsmghl40";
   };
 
   buildInputs = [ libxslt kdelibs kdepimlibs grantlee qjson qca2 libofx sqlite boost ];
 
-  nativeBuildInputs = [ gettext ];
+  nativeBuildInputs = [ automoc4 cmake gettext perl pkgconfig shared_mime_info ];
 
   meta = {
     inherit (kdelibs.meta) platforms;

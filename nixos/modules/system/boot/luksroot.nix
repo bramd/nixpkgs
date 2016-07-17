@@ -5,7 +5,7 @@ with lib;
 let
   luks = config.boot.initrd.luks;
 
-  openCommand = { name, device, header, keyFile, keyFileSize, allowDiscards, yubikey, ... }: ''
+  openCommand = name': { name, device, header, keyFile, keyFileSize, allowDiscards, yubikey, ... }: assert name' == name; ''
     # Wait for luksRoot to appear, e.g. if on a usb drive.
     # XXX: copied and adapted from stage-1-init.sh - should be
     # available as a function.
@@ -32,9 +32,12 @@ let
     ''}
 
     open_normally() {
-        cryptsetup luksOpen ${device} ${name} ${optionalString allowDiscards "--allow-discards"} \
+        echo luksOpen ${device} ${name} ${optionalString allowDiscards "--allow-discards"} \
           ${optionalString (header != null) "--header=${header}"} \
-          ${optionalString (keyFile != null) "--key-file=${keyFile} ${optionalString (keyFileSize != null) "--keyfile-size=${toString keyFileSize}"}"}
+          ${optionalString (keyFile != null) "--key-file=${keyFile} ${optionalString (keyFileSize != null) "--keyfile-size=${toString keyFileSize}"}"} \
+          > /.luksopen_args
+        cryptsetup-askpass
+        rm /.luksopen_args
     }
 
     ${optionalString (luks.yubikeySupport && (yubikey != null)) ''
@@ -189,9 +192,8 @@ let
     ''}
   '';
 
-  isPreLVM = f: f.preLVM;
-  preLVM = filter isPreLVM luks.devices;
-  postLVM = filter (f: !(isPreLVM f)) luks.devices;
+  preLVM = filterAttrs (n: v: v.preLVM) luks.devices;
+  postLVM = filterAttrs (n: v: !v.preLVM) luks.devices;
 
 in
 {
@@ -225,37 +227,37 @@ in
     };
 
     boot.initrd.luks.devices = mkOption {
-      default = [ ];
-      example = [ { name = "luksroot"; device = "/dev/sda3"; preLVM = true; } ];
+      default = { };
+      example = { "luksroot".device = "/dev/disk/by-uuid/430e9eff-d852-4f68-aa3b-2fa3599ebe08"; };
       description = ''
-        The list of devices that should be decrypted using LUKS before trying to mount the
-        root partition. This works for both LVM-over-LUKS and LUKS-over-LVM setups.
-
-        The devices are decrypted to the device mapper names defined.
-
-        Make sure that initrd has the crypto modules needed for decryption.
+        The encrypted disk that should be opened before the root
+        filesystem is mounted. Both LVM-over-LUKS and LUKS-over-LVM
+        setups are sypported. The unencrypted devices can be accessed as
+        <filename>/dev/mapper/<replaceable>name</replaceable></filename>.
       '';
 
-      type = types.listOf types.optionSet;
+      type = types.loaOf types.optionSet;
 
-      options = {
+      options = { name, ... }: { options = {
 
         name = mkOption {
+          visible = false;
+          default = name;
           example = "luksroot";
-          type = types.string;
-          description = "Named to be used for the generated device in /dev/mapper.";
+          type = types.str;
+          description = "Name of the unencrypted device in <filename>/dev/mapper</filename>.";
         };
 
         device = mkOption {
-          example = "/dev/sda2";
-          type = types.string;
-          description = "Path of the underlying block device.";
+          example = "/dev/disk/by-uuid/430e9eff-d852-4f68-aa3b-2fa3599ebe08";
+          type = types.str;
+          description = "Path of the underlying encrypted block device.";
         };
 
         header = mkOption {
           default = null;
           example = "/root/header.img";
-          type = types.nullOr types.string;
+          type = types.nullOr types.str;
           description = ''
             The name of the file or block device that
             should be used as header for the encrypted device.
@@ -265,7 +267,7 @@ in
         keyFile = mkOption {
           default = null;
           example = "/dev/sdb1";
-          type = types.nullOr types.string;
+          type = types.nullOr types.str;
           description = ''
             The name of the file (can be a raw device or a partition) that
             should be used as the decryption key for the encrypted device. If
@@ -286,6 +288,7 @@ in
           '';
         };
 
+        # FIXME: get rid of this option.
         preLVM = mkOption {
           default = true;
           type = types.bool;
@@ -349,7 +352,7 @@ in
 
             ramfsMountPoint = mkOption {
               default = "/crypt-ramfs";
-              type = types.string;
+              type = types.str;
               description = "Path where the ramfs used to update the LUKS key will be mounted during early boot.";
             };
 
@@ -369,19 +372,19 @@ in
 
               fsType = mkOption {
                 default = "vfat";
-                type = types.string;
+                type = types.str;
                 description = "The filesystem of the unencrypted device.";
               };
 
               mountPoint = mkOption {
                 default = "/crypt-storage";
-                type = types.string;
+                type = types.str;
                 description = "Path where the unencrypted device will be mounted during early boot.";
               };
 
               path = mkOption {
                 default = "/crypt-storage/default";
-                type = types.string;
+                type = types.str;
                 description = ''
                   Absolute path of the salt on the unencrypted device with
                   that device's root directory as "/".
@@ -391,7 +394,7 @@ in
           };
         };
 
-      };
+      }; };
     };
 
     boot.initrd.luks.yubikeySupport = mkOption {
@@ -405,7 +408,7 @@ in
     };
   };
 
-  config = mkIf (luks.devices != []) {
+  config = mkIf (luks.devices != {}) {
 
     # actually, sbp2 driver is the one enabling the DMA attack, but this needs to be tested
     boot.blacklistedKernelModules = optionals luks.mitigateDMAAttacks
@@ -418,12 +421,24 @@ in
     boot.initrd.extraUtilsCommands = ''
       copy_bin_and_libs ${pkgs.cryptsetup}/bin/cryptsetup
 
+      cat > $out/bin/cryptsetup-askpass <<EOF
+      #!$out/bin/sh -e
+      if [ -e /.luksopen_args ]; then
+        cryptsetup \$(cat /.luksopen_args)
+        killall cryptsetup
+      else
+        echo "Passphrase is not requested now"
+        exit 1
+      fi
+      EOF
+      chmod +x $out/bin/cryptsetup-askpass
+
       ${optionalString luks.yubikeySupport ''
         copy_bin_and_libs ${pkgs.ykpers}/bin/ykchalresp
         copy_bin_and_libs ${pkgs.ykpers}/bin/ykinfo
-        copy_bin_and_libs ${pkgs.openssl}/bin/openssl
+        copy_bin_and_libs ${pkgs.openssl.bin}/bin/openssl
 
-        cc -O3 -I${pkgs.openssl}/include -L${pkgs.openssl}/lib ${./pbkdf2-sha512.c} -o pbkdf2-sha512 -lcrypto
+        cc -O3 -I${pkgs.openssl.dev}/include -L${pkgs.openssl.out}/lib ${./pbkdf2-sha512.c} -o pbkdf2-sha512 -lcrypto
         strip -s pbkdf2-sha512
         copy_bin_and_libs pbkdf2-sha512
 
@@ -432,6 +447,8 @@ in
 
         cat > $out/bin/openssl-wrap <<EOF
         #!$out/bin/sh
+        export OPENSSL_CONF=$out/etc/ssl/openssl.cnf
+        $out/bin/openssl "\$@"
         EOF
         chmod +x $out/bin/openssl-wrap
       ''}
@@ -442,17 +459,12 @@ in
       ${optionalString luks.yubikeySupport ''
         $out/bin/ykchalresp -V
         $out/bin/ykinfo -V
-        cat > $out/bin/openssl-wrap <<EOF
-        #!$out/bin/sh
-        export OPENSSL_CONF=$out/etc/ssl/openssl.cnf
-        $out/bin/openssl "\$@"
-        EOF
         $out/bin/openssl-wrap version
       ''}
     '';
 
-    boot.initrd.preLVMCommands = concatMapStrings openCommand preLVM;
-    boot.initrd.postDeviceCommands = concatMapStrings openCommand postLVM;
+    boot.initrd.preLVMCommands = concatStrings (mapAttrsToList openCommand preLVM);
+    boot.initrd.postDeviceCommands = concatStrings (mapAttrsToList openCommand postLVM);
 
     environment.systemPackages = [ pkgs.cryptsetup ];
   };

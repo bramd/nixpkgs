@@ -4,7 +4,7 @@
 , libmodplug, mpeg2dec, mpg123
 , openjpeg, libopus, librsvg
 , wildmidi, fluidsynth, libvdpau, wayland
-, libwebp, xvidcore, gnutls
+, libwebp, xvidcore, gnutls, mjpegtools
 , mesa, libintlOrEmpty
 }:
 
@@ -14,7 +14,7 @@ let
   inherit (stdenv.lib) optional optionalString;
 in
 stdenv.mkDerivation rec {
-  name = "gst-plugins-bad-1.4.5";
+  name = "gst-plugins-bad-1.8.2";
 
   meta = with stdenv.lib; {
     description = "Gstreamer Bad Plugins";
@@ -27,13 +27,14 @@ stdenv.mkDerivation rec {
     '';
     license     = licenses.lgpl2Plus;
     platforms   = platforms.unix;
-    maintainers = with maintainers; [ iyzsong ];
   };
 
   src = fetchurl {
     url = "${meta.homepage}/src/gst-plugins-bad/${name}.tar.xz";
-    sha256 = "0g4q9yqq71z32pz7zj54wigkcf438a2mcv5kvvwp4gb8a1rasbqm";
+    sha256 = "d7995317530c8773ec088f94d9320909d41da61996b801ebacce9a56af493f97";
   };
+
+  outputs = [ "dev" "out" ];
 
   nativeBuildInputs = [ pkgconfig python ];
 
@@ -44,6 +45,7 @@ stdenv.mkDerivation rec {
     openjpeg libopus librsvg
     fluidsynth libvdpau
     libwebp xvidcore gnutls mesa
+    mjpegtools
   ]
     ++ libintlOrEmpty
     ++ optional faacSupport faac

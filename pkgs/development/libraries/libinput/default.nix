@@ -1,5 +1,5 @@
 { stdenv, fetchurl, pkgconfig
-, libevdev, mtdev, udev
+, libevdev, mtdev, udev, libwacom
 , documentationSupport ? false, doxygen ? null, graphviz ? null # Documentation
 , eventGUISupport ? false, cairo ? null, glib ? null, gtk3 ? null # GUI event viewer support
 , testsSupport ? false, check ? null, valgrind ? null
@@ -15,12 +15,14 @@ in
 
 with stdenv.lib;
 stdenv.mkDerivation rec {
-  name = "libinput-1.0.1";
+  name = "libinput-1.3.3";
 
   src = fetchurl {
     url = "http://www.freedesktop.org/software/libinput/${name}.tar.xz";
-    sha256 = "17prgxxq95i2l8a00clwwmvvskbb9xza9fmym1jvlmxl358v6bs8";
+    sha256 = "1kmiv1mcrxniigdcs65w23897mczsx0hasxc6p13hjk58zzfvj1h";
   };
+
+  outputs = [ "dev" "out" ];
 
   configureFlags = [
     (mkFlag documentationSupport "documentation")
@@ -30,10 +32,12 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [ pkgconfig ];
 
-  buildInputs = [ libevdev mtdev udev ]
+  buildInputs = [ libevdev mtdev libwacom ]
     ++ optionals eventGUISupport [ cairo glib gtk3 ]
     ++ optionals documentationSupport [ doxygen graphviz ]
     ++ optionals testsSupport [ check valgrind ];
+
+  propagatedBuildInputs = [ udev ];
 
   meta = {
     description = "Handles input devices in Wayland compositors and provides a generic X.Org input driver";

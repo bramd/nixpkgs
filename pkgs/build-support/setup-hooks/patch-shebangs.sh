@@ -5,7 +5,7 @@
 # rewritten to /nix/store/<hash>/bin/python.  Interpreters that are
 # already in the store are left untouched.
 
-fixupOutputHooks+=('if [ -z "$dontPatchShebangs" ]; then patchShebangs "$prefix"; fi')
+fixupOutputHooks+=('if [ -z "$dontPatchShebangs" -a -e "$prefix" ]; then patchShebangs "$prefix"; fi')
 
 patchShebangs() {
     local dir="$1"
@@ -18,13 +18,13 @@ patchShebangs() {
     local oldInterpreterLine
     local newInterpreterLine
 
-    find "$dir" -type f -perm /0100 | while read f; do
-        if [ "$(head -1 "$f" | head -c +2)" != '#!' ]; then
+    find "$dir" -type f -perm -0100 | while read f; do
+        if [ "$(head -1 "$f" | head -c+2)" != '#!' ]; then
             # missing shebang => not a script
             continue
         fi
 
-        oldInterpreterLine=$(head -1 "$f" | tail -c +3)
+        oldInterpreterLine=$(head -1 "$f" | tail -c+3)
         read -r oldPath arg0 args <<< "$oldInterpreterLine"
 
         if $(echo "$oldPath" | grep -q "/bin/env$"); then
@@ -46,7 +46,8 @@ patchShebangs() {
             args="$arg0 $args"
         fi
 
-        newInterpreterLine="$newPath $args"
+        # Strip trailing whitespace introduced when no arguments are present
+        newInterpreterLine="$(echo "$newPath $args" | sed 's/[[:space:]]*$//')"
 
         if [ -n "$oldPath" -a "${oldPath:0:${#NIX_STORE}}" != "$NIX_STORE" ]; then
             if [ -n "$newPath" -a "$newPath" != "$oldPath" ]; then

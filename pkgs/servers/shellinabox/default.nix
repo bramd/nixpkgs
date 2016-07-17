@@ -1,17 +1,19 @@
-{ stdenv, fetchurl, pam, openssl, openssh, shadow, makeWrapper }:
+{ stdenv, fetchFromGitHub, autoreconfHook, pam, openssl, openssh, shadow, makeWrapper }:
 
 stdenv.mkDerivation rec {
-  version = "2.14";
+  version = "2.19";
   name = "shellinabox-${version}";
 
-  src = fetchurl {
-    url = "https://shellinabox.googlecode.com/files/shellinabox-${version}.tar.gz";
-    sha1 = "9e01f58c68cb53211b83d0f02e676e0d50deb781";
+  src = fetchFromGitHub {
+    owner = "shellinabox";
+    repo = "shellinabox";
+    rev = "1a8010f2c94a62e7398c4fa130dfe9e099dc55cd";
+    sha256 = "16cr7gbnh6vzsxlhg9j9avqrxbhbkqhsbvh197b0ccdwbb04ysan";
   };
 
-  buildInputs = [ pam openssl openssh makeWrapper ];
-
   patches = [ ./shellinabox-minus.patch ];
+
+  buildInputs = [ autoreconfHook pam openssl openssh makeWrapper ];
 
   # Disable GSSAPIAuthentication errors. Also, paths in certain source files are
   # hardcoded. Replace the hardcoded paths with correct paths.
@@ -20,12 +22,14 @@ stdenv.mkDerivation rec {
     substituteInPlace ./shellinabox/launcher.c --replace "/usr/games" "${openssh}/bin"
     substituteInPlace ./shellinabox/service.c --replace "/bin/login" "${shadow}/bin/login"
     substituteInPlace ./shellinabox/launcher.c --replace "/bin/login" "${shadow}/bin/login"
-    substituteInPlace ./libhttp/ssl.c --replace "/usr/bin" "${openssl}/bin"
+    substituteInPlace ./libhttp/ssl.c --replace "/usr/bin" "${openssl.bin}/bin"
   '';
 
   postInstall = ''
     wrapProgram $out/bin/shellinaboxd \
-      --prefix LD_LIBRARY_PATH : ${openssl}/lib
+      --prefix LD_LIBRARY_PATH : ${openssl.out}/lib
+    mkdir -p $out/lib
+    cp shellinabox/* $out/lib
   '';
 
   meta = with stdenv.lib; {

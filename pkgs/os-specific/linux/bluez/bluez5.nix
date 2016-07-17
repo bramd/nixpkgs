@@ -5,23 +5,27 @@
 assert stdenv.isLinux;
 
 stdenv.mkDerivation rec {
-  name = "bluez-5.33";
-   
+  name = "bluez-5.40";
+
   src = fetchurl {
     url = "mirror://kernel/linux/bluetooth/${name}.tar.xz";
-    sha256 = "1lrn2irisr569m3fnrqhzsg77dgci55nlp5izv5phrjh2dx8008q";
+    sha256 = "09ywk3lvgis0nbi0d5z8d4qp5r33lzwnd6bdakacmbsm420qpnns";
   };
 
   pythonPath = with pythonPackages;
     [ pythonDBus pygobject pygobject3 recursivePthLoader ];
 
   buildInputs =
-    [ pkgconfig dbus.libs glib alsaLib python pythonPackages.wrapPython
+    [ pkgconfig dbus glib alsaLib python pythonPackages.wrapPython
       readline libsndfile udev libical
       # Disables GStreamer; not clear what it gains us other than a
       # zillion extra dependencies.
-      # gstreamer gst_plugins_base 
+      # gstreamer gst_plugins_base
     ];
+
+  outputs = [ "dev" "out" "test" ];
+
+  patches = [ ./bluez-5.37-obexd_without_systemd-1.patch ];
 
   preConfigure = ''
       substituteInPlace tools/hid2hci.rules --replace /sbin/udevadm ${systemd}/bin/udevadm
@@ -49,9 +53,9 @@ stdenv.mkDerivation rec {
   # FIXME: Move these into a separate package to prevent Bluez from
   # depending on Python etc.
   postInstall = ''
-    mkdir $out/test
-    cp -a test $out
-    pushd $out/test
+    mkdir -p $test/test
+    cp -a test $test
+    pushd $test/test
     for a in \
             simple-agent \
             test-adapter \
@@ -63,12 +67,15 @@ stdenv.mkDerivation rec {
       ln -s ../test/$a $out/bin/bluez-$a
     done
     popd
-    wrapPythonProgramsIn $out/test "$out/test $pythonPath"
+    wrapPythonProgramsIn $test/test "$test/test $pythonPath"
 
     # for bluez4 compatibility for NixOS
     mkdir $out/sbin
     ln -s ../libexec/bluetooth/bluetoothd $out/sbin/bluetoothd
+    ln -s ../libexec/bluetooth/obexd $out/sbin/obexd
   '';
+
+  enableParallelBuilding = true;
 
   meta = with stdenv.lib; {
     homepage = http://www.bluez.org/;

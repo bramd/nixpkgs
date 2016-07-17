@@ -1,24 +1,20 @@
-{ fetchurl, stdenv, sqlite, pkgconfig, autoconf, automake
+{ fetchurl, stdenv, sqlite, pkgconfig, autoreconfHook
 , xapian, glib, gmime, texinfo , emacs, guile
-, gtk3, webkit, libsoup, icu, withMug ? false /* doesn't build with current gtk3 */ }:
+, gtk3, webkitgtk24x, libsoup, icu }:
 
 stdenv.mkDerivation rec {
-  version = "0.9.12";
+  version = "0.9.16";
   name = "mu-${version}";
 
   src = fetchurl {
     url = "https://github.com/djcb/mu/archive/v${version}.tar.gz";
-    sha256 = "1bxryacmas2llj68m2dv8dr1vwx8f5k2i2azh69jajkpqx7i4wdq";
+    sha256 = "0p7hqri1r1x6750x138cc29mh81kdav2dcim26y58s8an206h25g";
   };
 
-  buildInputs =
-    [ sqlite pkgconfig autoconf automake xapian
-      glib gmime texinfo emacs guile libsoup icu ]
-    ++ stdenv.lib.optional withMug [ gtk3 webkit ];
-
-  preConfigure = ''
-    autoreconf -i
-  '';
+  buildInputs = [
+    sqlite pkgconfig xapian glib gmime texinfo emacs guile libsoup icu
+    autoreconfHook
+    gtk3 webkitgtk24x ];
 
   preBuild = ''
     # Fix mu4e-builddir (set it to $out)
@@ -31,16 +27,16 @@ stdenv.mkDerivation rec {
   '';
 
   # Install mug and msg2pdf
-  postInstall = stdenv.lib.optionalString withMug ''
+  postInstall = ''
     cp -v toys/msg2pdf/msg2pdf $out/bin/
     cp -v toys/mug/mug $out/bin/
   '';
 
-  meta = {
+  meta = with stdenv.lib; {
     description = "A collection of utilties for indexing and searching Maildirs";
-    license = stdenv.lib.licenses.gpl3Plus;
+    license = licenses.gpl3Plus;
     homepage = "http://www.djcbsoftware.nl/code/mu/";
-    platforms = stdenv.lib.platforms.mesaPlatforms;
-    maintainers = with stdenv.lib.maintainers; [ antono the-kenny ];
+    platforms = platforms.mesaPlatforms;
+    maintainers = with maintainers; [ antono the-kenny ];
   };
 }

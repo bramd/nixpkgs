@@ -1,31 +1,36 @@
 { stdenv, fetchurl, pkgconfig, libpipeline, db, groff }:
- 
+
 stdenv.mkDerivation rec {
-  name = "man-db-2.7.2";
-  
+  name = "man-db-2.7.5";
+
   src = fetchurl {
     url = "mirror://savannah/man-db/${name}.tar.xz";
-    sha256 = "14p4sr57qc02gfnpybcnv33fb7gr266iqsyq7z4brs6wa6plwrr2";
+    sha256 = "056a3il7agfazac12yggcg4gf412yq34k065im0cpfxbcw6xskaw";
   };
-  
-  buildInputs = [ pkgconfig libpipeline db groff ];
-  
+
+  outputs = [ "out" "doc" ];
+  outputMan = "out"; # users will want `man man` to work
+
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ libpipeline db groff ];
+
   configureFlags = [
     "--disable-setuid"
-    "--sysconfdir=/etc"
     "--localstatedir=/var"
+    # Don't try /etc/man_db.conf by default, so we avoid error messages.
+    "--with-config-file=\${out}/etc/man_db.conf"
     "--with-systemdtmpfilesdir=\${out}/lib/tmpfiles.d"
+    "--with-eqn=${groff}/bin/eqn"
+    "--with-neqn=${groff}/bin/neqn"
+    "--with-nroff=${groff}/bin/nroff"
+    "--with-pic=${groff}/bin/pic"
+    "--with-refer=${groff}/bin/refer"
+    "--with-tbl=${groff}/bin/tbl"
   ];
 
-  installFlags = [ "DESTDIR=\${out}" ];
+  enableParallelBuilding = true;
 
-  postInstall = ''
-    mv $out/$out/* $out
-    DIR=$out/$out
-    while rmdir $DIR 2>/dev/null; do
-      DIR="$(dirname "$DIR")"
-    done
-  '';
+  doCheck = true;
 
   meta = with stdenv.lib; {
     homepage = "http://man-db.nongnu.org";

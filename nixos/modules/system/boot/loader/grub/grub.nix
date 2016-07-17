@@ -10,8 +10,11 @@ let
 
   realGrub = if cfg.version == 1 then pkgs.grub
     else if cfg.zfsSupport then pkgs.grub2.override { zfsSupport = true; }
-    else if cfg.enableTrustedBoot then pkgs.trustedGrub
-           else pkgs.grub2;
+    else if cfg.trustedBoot.enable
+         then if cfg.trustedBoot.isHPLaptop
+              then pkgs.trustedGrub-for-HP
+              else pkgs.trustedGrub
+         else pkgs.grub2;
 
   grub =
     # Don't include GRUB if we're only generating a GRUB menu (e.g.,
@@ -45,17 +48,18 @@ let
       bootPath = args.path;
       storePath = config.boot.loader.grub.storePath;
       bootloaderId = if args.efiBootloaderId == null then "NixOS${efiSysMountPoint'}" else args.efiBootloaderId;
+      timeout = if config.boot.loader.timeout == null then -1 else config.boot.loader.timeout;
       inherit efiSysMountPoint;
       inherit (args) devices;
       inherit (efi) canTouchEfiVariables;
       inherit (cfg)
         version extraConfig extraPerEntryConfig extraEntries
-        extraEntriesBeforeNixOS extraPrepareConfig configurationLimit copyKernels timeout
+        extraEntriesBeforeNixOS extraPrepareConfig configurationLimit copyKernels
         default fsIdentifier efiSupport gfxmodeEfi gfxmodeBios;
-      path = (makeSearchPath "bin" ([
-        pkgs.coreutils pkgs.gnused pkgs.gnugrep pkgs.findutils pkgs.diffutils pkgs.btrfsProgs
+      path = (makeBinPath ([
+        pkgs.coreutils pkgs.gnused pkgs.gnugrep pkgs.findutils pkgs.diffutils pkgs.btrfs-progs
         pkgs.utillinux ] ++ (if cfg.efiSupport && (cfg.version == 2) then [pkgs.efibootmgr ] else [])
-      )) + ":" + (makeSearchPath "sbin" [
+      )) + ":" + (makeSearchPathOutput "bin" "sbin" [
         pkgs.mdadm pkgs.utillinux
       ]);
     });
@@ -248,6 +252,7 @@ in
       };
 
       extraFiles = mkOption {
+        type = types.attrsOf types.path;
         default = {};
         example = literalExample ''
           { "memtest.bin" = "''${pkgs.memtest86plus}/memtest.bin"; }
@@ -309,14 +314,6 @@ in
         '';
       };
 
-      timeout = mkOption {
-        default = if (config.boot.loader.timeout != null) then config.boot.loader.timeout else -1;
-        type = types.int;
-        description = ''
-          Timeout (in seconds) until GRUB boots the default menu item.
-        '';
-      };
-
       default = mkOption {
         default = 0;
         type = types.int;
@@ -369,13 +366,37 @@ in
         '';
       };
 
-      enableTrustedBoot = mkOption {
-        default = false;
-        type = types.bool;
-        description = ''
-          Enable trusted boot. GRUB will measure all critical components during
-          the boot process to offer TCG (TPM) support.
-        '';
+      trustedBoot = {
+
+        enable = mkOption {
+          default = false;
+          type = types.bool;
+          description = ''
+            Enable trusted boot. GRUB will measure all critical components during
+            the boot process to offer TCG (TPM) support.
+          '';
+        };
+
+        systemHasTPM = mkOption {
+          default = "";
+          example = "YES_TPM_is_activated";
+          type = types.string;
+          description = ''
+            Assertion that the target system has an activated TPM. It is a safety
+            check before allowing the activation of 'trustedBoot.enable'. TrustedBoot
+            WILL FAIL TO BOOT YOUR SYSTEM if no TPM is available.
+          '';
+        };
+
+        isHPLaptop = mkOption {
+          default = false;
+          type = types.bool;
+          description = ''
+            Use a special version of TrustedGRUB that is needed by some HP laptops
+            and works only for the HP laptops.
+          '';
+        };
+
       };
 
     };
@@ -441,25 +462,25 @@ in
           message = "You cannot have duplicated devices in mirroredBoots";
         }
         {
-          assertion = !cfg.enableTrustedBoot || cfg.version == 2;
+          assertion = !cfg.trustedBoot.enable || cfg.version == 2;
           message = "Trusted GRUB is only available for GRUB 2";
         }
         {
-          assertion = !cfg.efiSupport || !cfg.enableTrustedBoot;
+          assertion = !cfg.efiSupport || !cfg.trustedBoot.enable;
           message = "Trusted GRUB does not have EFI support";
         }
         {
-          assertion = !cfg.zfsSupport || !cfg.enableTrustedBoot;
+          assertion = !cfg.zfsSupport || !cfg.trustedBoot.enable;
           message = "Trusted GRUB does not have ZFS support";
         }
         {
-          assertion = !cfg.enableTrustedBoot;
-          message = "Trusted GRUB can break your system. Remove assertion if you want to test trustedGRUB nevertheless.";
+          assertion = !cfg.trustedBoot.enable || cfg.trustedBoot.systemHasTPM == "YES_TPM_is_activated";
+          message = "Trusted GRUB can break the system! Confirm that the system has an activated TPM by setting 'systemHasTPM'.";
         }
       ] ++ flip concatMap cfg.mirroredBoots (args: [
         {
           assertion = args.devices != [ ];
-          message = "A boot path cannot have an empty devices string in ${arg.path}";
+          message = "A boot path cannot have an empty devices string in ${args.path}";
         }
         {
           assertion = hasPrefix "/" args.path;
@@ -467,14 +488,25 @@ in
         }
         {
           assertion = if args.efiSysMountPoint == null then true else hasPrefix "/" args.efiSysMountPoint;
-          message = "Efi paths must be absolute, not ${args.efiSysMountPoint}";
+          message = "EFI paths must be absolute, not ${args.efiSysMountPoint}";
         }
       ] ++ flip map args.devices (device: {
         assertion = device == "nodev" || hasPrefix "/" device;
-        message = "GRUB devices must be absolute paths, not ${dev} in ${args.path}";
+        message = "GRUB devices must be absolute paths, not ${device} in ${args.path}";
       }));
     })
 
   ];
+
+
+  imports =
+    [ (mkRemovedOptionModule [ "boot" "loader" "grub" "bootDevice" ])
+      (mkRenamedOptionModule [ "boot" "copyKernels" ] [ "boot" "loader" "grub" "copyKernels" ])
+      (mkRenamedOptionModule [ "boot" "extraGrubEntries" ] [ "boot" "loader" "grub" "extraEntries" ])
+      (mkRenamedOptionModule [ "boot" "extraGrubEntriesBeforeNixos" ] [ "boot" "loader" "grub" "extraEntriesBeforeNixOS" ])
+      (mkRenamedOptionModule [ "boot" "grubDevice" ] [ "boot" "loader" "grub" "device" ])
+      (mkRenamedOptionModule [ "boot" "bootMount" ] [ "boot" "loader" "grub" "bootDevice" ])
+      (mkRenamedOptionModule [ "boot" "grubSplashImage" ] [ "boot" "loader" "grub" "splashImage" ])
+    ];
 
 }

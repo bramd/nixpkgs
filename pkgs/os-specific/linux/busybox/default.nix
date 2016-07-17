@@ -46,6 +46,8 @@ stdenv.mkDerivation rec {
     CONFIG_PREFIX "$out"
     CONFIG_INSTALL_NO_USR y
 
+    CONFIG_LFS y
+
     ${stdenv.lib.optionalString enableStatic ''
       CONFIG_STATIC y
     ''}
@@ -53,6 +55,9 @@ stdenv.mkDerivation rec {
     # Use the external mount.cifs program.
     CONFIG_FEATURE_MOUNT_CIFS n
     CONFIG_FEATURE_MOUNT_HELPERS y
+
+    # Set paths for console fonts.
+    CONFIG_DEFAULT_SETFONT_DIR "/etc/kbd"
 
     ${extraConfig}
     $extraCrossConfig

@@ -34,7 +34,7 @@ stdenv.mkDerivation rec {
       "FLEX=${flex}/bin/flex"
       "BISON=${bison}/bin/bison"
       "FIND=${findutils}/bin/find"
-      "STRIP=${binutils}/bin/strip"
+      "STRIP=${binutils.out}/bin/strip"
       "INSTALL=${coreutils}/bin/install"
       "MANDIR=/share/man"
       "MKNOD=true"
@@ -47,6 +47,6 @@ stdenv.mkDerivation rec {
     homepage    = "https://grsecurity.net";
     license     = licenses.gpl2;
     platforms   = platforms.linux;
-    maintainers = with maintainers; [ thoughtpolice wizeman ];
+    maintainers = with maintainers; [ thoughtpolice ];
   };
 }

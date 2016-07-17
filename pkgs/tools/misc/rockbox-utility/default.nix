@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, libusb1, qt4 }:
+{ stdenv, fetchurl, libusb1, qt4, qmake4Hook }:
 
 stdenv.mkDerivation  rec {
   name = "rockbox-utility-${version}";
@@ -10,10 +10,10 @@ stdenv.mkDerivation  rec {
   };
 
   buildInputs = [ libusb1 qt4 ];
+  nativeBuildInputs = [ qmake4Hook ];
 
-  preBuild = ''
+  preConfigure = ''
     cd rbutil/rbutilqt
-    qmake
   '';
 
   installPhase = ''
@@ -22,7 +22,7 @@ stdenv.mkDerivation  rec {
   '';
 
   meta = with stdenv.lib; {
-    description = "open source firmware for mp3 players";
+    description = "Open source firmware for mp3 players";
     homepage = http://www.rockbox.org;
     license = licenses.gpl2;
     platforms = platforms.linux;

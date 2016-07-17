@@ -1,14 +1,17 @@
 { stdenv
-, fetchurl
+, fetchFromGitHub
 , cmake
 , ffmpeg
 , jansson
 , libxkbcommon
-, qt5
+, qtbase
+, qtx11extras
 , libv4l
 , x264
 , curl
 
+, alsaSupport ? false
+, alsaLib
 , pulseaudioSupport ? false
 , libpulseaudio
 }:
@@ -17,23 +20,28 @@ let
   optional = stdenv.lib.optional;
 in stdenv.mkDerivation rec {
   name = "obs-studio-${version}";
-  version = "0.11.1";
+  version = "0.14.2";
 
-  src = fetchurl {
-    url = "https://github.com/jp9000/obs-studio/archive/${version}.tar.gz";
-    sha256 = "12g1y6y8ixvgvwk75x7qgq0j06d5khd0w3if6kahswlc58q65fm8";
+  src = fetchFromGitHub {
+    owner = "jp9000";
+    repo = "obs-studio";
+    rev = "${version}";
+    sha256 = "05yjm58d6daya1x6v8d73gx8fb20l0icay74nx0v4si2c898vm1j";
   };
 
-  buildInputs = [ cmake
-                  curl
+  nativeBuildInputs = [ cmake
+                      ];
+
+  buildInputs = [ curl
                   ffmpeg
                   jansson
                   libv4l
                   libxkbcommon
-                  qt5.base
-                  qt5.x11extras
+                  qtbase
+                  qtx11extras
                   x264
                 ]
+                ++ optional alsaSupport alsaLib
                 ++ optional pulseaudioSupport libpulseaudio;
 
   # obs attempts to dlopen libobs-opengl, it fails unless we make sure

@@ -1,17 +1,31 @@
-{ stdenv, fetchurl, erlang, rebar, makeWrapper, coreutils, curl, bash }:
+{ stdenv, fetchFromGitHub, erlang, rebar, makeWrapper, coreutils, curl, bash,
+  debugInfo ? false }:
 
-let
-  version = "1.0.5";
-in
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
   name = "elixir-${version}";
+  version = "1.3.1";
 
-  src = fetchurl {
-    url = "https://github.com/elixir-lang/elixir/archive/v${version}.tar.gz";
-    sha256 = "1f419pzlcgqx68rygwwyp2hzh4vgp0avjydd84dpa7finckc5raw";
+  src = fetchFromGitHub {
+    owner = "elixir-lang";
+    repo = "elixir";
+    rev = "v${version}";
+    sha256 = "0pihqgsnddrhhcpiphz170wgwlc59pd492iy4f66dajapm5k329d";
   };
 
   buildInputs = [ erlang rebar makeWrapper ];
+
+  # Elixir expects that UTF-8 locale to be set (see https://github.com/elixir-lang/elixir/issues/3548).
+  # In other cases there is warnings during compilation.
+  LANG = "en_US.UTF-8";
+  LC_TYPE = "en_US.UTF-8";
+
+  setupHook = ./setup-hook.sh;
+
+  inherit debugInfo;
+
+  buildFlags = if debugInfo
+   then "ERL_COMPILER_OPTIONS=debug_info"
+   else "";
 
   preBuild = ''
     # The build process uses ./rebar. Link it to the nixpkgs rebar
@@ -30,12 +44,12 @@ stdenv.mkDerivation {
      b=$(basename $f)
       if [ $b == "mix" ]; then continue; fi
       wrapProgram $f \
-        --prefix PATH ":" "${erlang}/bin:${coreutils}/bin:${curl}/bin:${bash}/bin" \
+        --prefix PATH ":" "${erlang}/bin:${coreutils}/bin:${curl.bin}/bin:${bash}/bin" \
         --set CURL_CA_BUNDLE /etc/ssl/certs/ca-certificates.crt
     done
 
     substituteInPlace $out/bin/mix \
-          --replace "/usr/bin/env elixir" "${coreutils}/bin/env $out/bin/elixir"
+          --replace "/usr/bin/env elixir" "${coreutils}/bin/env elixir"
   '';
 
   meta = with stdenv.lib; {
@@ -52,6 +66,6 @@ stdenv.mkDerivation {
 
     license = licenses.epl10;
     platforms = platforms.unix;
-    maintainers = [ maintainers.the-kenny ];
+    maintainers = with maintainers; [ the-kenny havvy couchemar ];
   };
 }

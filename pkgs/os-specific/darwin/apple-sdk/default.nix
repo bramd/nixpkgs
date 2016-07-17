@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, xar, gzip, cpio, CF }:
+{ stdenv, fetchurl, xar, gzip, cpio, pkgs }:
 
 let
   # sadly needs to be exported because security_tool needs it
@@ -34,7 +34,7 @@ let
       cd Library/Frameworks/QuartzCore.framework/Versions/A/Headers
       for file in CI*.h; do
         rm $file
-        ln -s ../Frameworks/CoreImage.framework/Versions/A/Headers/$file
+        ln -s ../Frameworks/CoreImage.framework/Headers/$file
       done
     '';
 
@@ -50,17 +50,34 @@ let
 
     phases = [ "installPhase" "fixupPhase" ];
 
+    # because we copy files from the system
+    preferLocalBuild = true;
+
     installPhase = ''
       linkFramework() {
         local path="$1"
         local dest="$out/Library/Frameworks/$path"
         local name="$(basename "$path" .framework)"
         local current="$(readlink "/System/Library/Frameworks/$path/Versions/Current")"
+        if [ -z "$current" ]; then
+          current=A
+        fi
 
         mkdir -p "$dest"
         pushd "$dest" >/dev/null
 
-        ln -s "${sdk}/Library/Frameworks/$path/Versions/$current/Headers"
+        # Keep track of if this is a child or a child rescue as with
+        # ApplicationServices in the 10.9 SDK
+        local isChild
+
+        if [ -d "${sdk}/Library/Frameworks/$path/Versions/$current/Headers" ]; then
+          isChild=1
+          cp -R "${sdk}/Library/Frameworks/$path/Versions/$current/Headers" .
+        else
+          isChild=0
+          current="$(readlink "/System/Library/Frameworks/$name.framework/Versions/Current")"
+          cp -R "${sdk}/Library/Frameworks/$name.framework/Versions/$current/Headers" .
+        fi
         ln -s -L "/System/Library/Frameworks/$path/Versions/$current/$name"
         ln -s -L "/System/Library/Frameworks/$path/Versions/$current/Resources"
 
@@ -68,8 +85,17 @@ let
           ln -s "/System/Library/Frameworks/$path/module.map"
         fi
 
-        pushd "${sdk}/Library/Frameworks/$path/Versions/$current" >/dev/null
+        if [ $isChild -eq 1 ]; then
+          pushd "${sdk}/Library/Frameworks/$path/Versions/$current" >/dev/null
+        else
+          pushd "${sdk}/Library/Frameworks/$name.framework/Versions/$current" >/dev/null
+        fi
         local children=$(echo Frameworks/*.framework)
+        if [ "$name" == "ApplicationServices" ]; then
+          # Fixing up ApplicationServices which is missing
+          # CoreGraphics in the 10.9 SDK
+          children="$children Frameworks/CoreGraphics.framework"
+        fi
         popd >/dev/null
 
         for child in $children; do
@@ -89,8 +115,10 @@ let
 
     propagatedBuildInputs = deps;
 
-    # Not going to bother being more precise than this...
-    __propagatedImpureHostDeps = (import ./impure-deps.nix).${name};
+    # allows building the symlink tree
+    __impureHostDeps = [ "/System/Library/Frameworks/${name}.framework" ];
+
+    __propagatedImpureHostDeps = stdenv.lib.optional (name != "Kernel") "/System/Library/Frameworks/${name}.framework/${name}";
 
     meta = with stdenv.lib; {
       description = "Apple SDK framework ${name}";
@@ -120,7 +148,7 @@ in rec {
       __propagatedImpureHostDeps = [ "/usr/lib/libXplugin.1.dylib" ];
 
       propagatedBuildInputs = with frameworks; [
-        OpenGL ApplicationServices Carbon IOKit CoreFoundation CoreGraphics CoreServices CoreText
+        OpenGL ApplicationServices Carbon IOKit pkgs.darwin.CF CoreGraphics CoreServices CoreText
       ];
 
       installPhase = ''
@@ -144,9 +172,32 @@ in rec {
     };
   };
 
-  frameworks = (stdenv.lib.mapAttrs framework (import ./frameworks.nix { inherit frameworks libs; })) // {
-    CoreFoundation = CF;
+  overrides = super: {
+    QuartzCore = stdenv.lib.overrideDerivation super.QuartzCore (drv: {
+      installPhase = drv.installPhase + ''
+        f="$out/Library/Frameworks/QuartzCore.framework/Headers/CoreImage.h"
+        substituteInPlace "$f" \
+          --replace "QuartzCore/../Frameworks/CoreImage.framework/Headers" "CoreImage"
+      '';
+    });
+
+    CoreServices = stdenv.lib.overrideDerivation super.CoreServices (drv: {
+      __propagatedSandboxProfile = drv.__propagatedSandboxProfile ++ [''
+        (allow mach-lookup (global-name "com.apple.CoreServices.coreservicesd"))
+      ''];
+    });
+
+    Security = stdenv.lib.overrideDerivation super.Security (drv: {
+      setupHook = ./security-setup-hook.sh;
+    });
   };
+
+  bareFrameworks = stdenv.lib.mapAttrs framework (import ./frameworks.nix {
+    inherit frameworks libs;
+    inherit (pkgs.darwin) CF cf-private libobjc;
+  });
+
+  frameworks = bareFrameworks // overrides bareFrameworks;
 
   inherit sdk;
 }

@@ -1,6 +1,6 @@
-{ stdenv, fetchgit, cmake, qt5, polkit_qt5, libyamlcpp, python, boost, parted
+{ stdenv, fetchgit, cmake, polkit-qt, libyamlcpp, python, boost, parted
 , extra-cmake-modules, kconfig, ki18n, kcoreaddons, solid, utillinux, libatasmart
-, ckbcomp, glibc, tzdata, xkeyboard_config }:
+, ckbcomp, glibc, tzdata, xkeyboard_config, qtbase, qtsvg, qttools }:
 
 stdenv.mkDerivation rec {
   name = "calamares-${version}";
@@ -9,11 +9,11 @@ stdenv.mkDerivation rec {
   src = fetchgit {
     url = "https://github.com/calamares/calamares.git";
     rev = "dabfb68a68cb012a90cd7b94a22e1ea08f7dd8ad";
-    sha256 = "2851ce487aaac61d2df342a47f91ec87fe52ff036227ef697caa7056fe5f188c";
+    sha256 = "12n161fmzybi20pxcjikqnckhzh175ni5da122p74bx7fzv7q41p";
   };
 
   buildInputs = [
-    cmake qt5.base qt5.tools libyamlcpp python boost polkit_qt5 parted
+    cmake qtbase qtsvg qttools libyamlcpp python boost polkit-qt parted
     extra-cmake-modules kconfig ki18n kcoreaddons solid utillinux libatasmart
   ];
 
@@ -43,7 +43,7 @@ stdenv.mkDerivation rec {
   '';
 
   preInstall = ''
-    substituteInPlace cmake_install.cmake --replace "${polkit_qt5}" "$out"
+    substituteInPlace cmake_install.cmake --replace "${polkit-qt}" "$out"
   '';
 
   meta = with stdenv.lib; {
@@ -51,5 +51,6 @@ stdenv.mkDerivation rec {
     license = licenses.gpl3;
     maintainers = with stdenv.lib.maintainers; [ tstrobel ];
     platforms = platforms.linux;
+    broken = true;
   };
 }

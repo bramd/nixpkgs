@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, fetchmtn, qt4, pkgconfig, graphviz }:
+{ stdenv, fetchurl, fetchmtn, qt4, qmake4Hook, pkgconfig, graphviz }:
 
 let version = "1.0-mtn-head"; in
 stdenv.mkDerivation rec {
@@ -16,10 +16,9 @@ stdenv.mkDerivation rec {
     branch = "net.venge.monotone.guitone";
   };
 
-  buildInputs = [ qt4 pkgconfig graphviz ];
+  buildInputs = [ qt4 qmake4Hook pkgconfig graphviz ];
 
-  prefixKey="PREFIX=";
-  configureScript = "qmake guitone.pro";
+  qmakeFlags = [ "guitone.pro" ];
 
   meta = {
     description = "Qt4 based GUI for monotone";

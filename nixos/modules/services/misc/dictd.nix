@@ -11,6 +11,7 @@ with lib;
     services.dictd = {
 
       enable = mkOption {
+        type = types.bool;
         default = false;
         description = ''
           Whether to enable the DICT.org dictionary server.
@@ -18,8 +19,9 @@ with lib;
       };
 
       DBs = mkOption {
+        type = types.listOf types.package;
         default = [];
-        # example = [ pkgs.dictDBs.nld2eng ];
+        example = [ pkgs.dictdDBs.nld2eng ];
         description = ''List of databases to make available.'';
       };
 
@@ -51,13 +53,12 @@ with lib;
         gid = config.ids.gids.dictd;
       };
 
-    jobs.dictd =
-      { description = "DICT.org Dictionary Server";
-        startOn = "startup";
-        environment = { LOCALE_ARCHIVE = "/run/current-system/sw/lib/locale/locale-archive"; };
-        daemonType = "fork";
-        exec = "${pkgs.dict}/sbin/dictd -s -c ${dictdb}/share/dictd/dictd.conf --locale en_US.UTF-8";
-      };
+    systemd.services.dictd = {
+      description = "DICT.org Dictionary Server";
+      wantedBy = [ "multi-user.target" ];
+      environment = { LOCALE_ARCHIVE = "/run/current-system/sw/lib/locale/locale-archive"; };
+      serviceConfig.Type = "forking";
+      script = "${pkgs.dict}/sbin/dictd -s -c ${dictdb}/share/dictd/dictd.conf --locale en_US.UTF-8";
+    };
   };
-
 }

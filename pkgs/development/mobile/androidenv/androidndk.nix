@@ -6,16 +6,16 @@
 assert stdenv.isLinux;
 
 stdenv.mkDerivation rec {
-  name = "android-ndk-r10c";
+  name = "android-ndk-r10e";
 
   src = if stdenv.system == "i686-linux"
     then fetchurl {
       url = "http://dl.google.com/android/ndk/${name}-linux-x86.bin";
-      sha256 = "0gyq68zrpzj3gkh81czs6r0jmikg5rwzh1bqg4rk16g2nxm4lll3";
+      sha256 = "1xbxra5v3bm6cmxyx8yyya5r93jh5m064aibgwd396xdm8jpvc4j";
     }
     else if stdenv.system == "x86_64-linux" then fetchurl {
       url = "http://dl.google.com/android/ndk/${name}-linux-x86_64.bin";
-      sha256 = "126rqzkmf8xz1hqdziwx81yln17hpivs2j45rxhzdr45iw9b758c";
+      sha256 = "0nhxixd0mq4ib176ya0hclnlbmhm8f2lab6i611kiwbzyqinfb8h";
     }
     else throw "platform ${stdenv.system} not supported!";
 
@@ -32,7 +32,7 @@ stdenv.mkDerivation rec {
     sed_script_2 =
       "'s|^MYNDKDIR=`dirname $0`" +
       "|MYNDKDIR=`dirname $(readlink -f $(which $0))`|'";
-    runtime_paths = (lib.makeSearchPath "bin" [
+    runtime_paths = (lib.makeBinPath [
       coreutils file findutils
       gawk gnugrep gnused
       jdk
@@ -53,9 +53,9 @@ stdenv.mkDerivation rec {
 
     find $out \( \
         \( -type f -a -name "*.so*" \) -o \
-        \( -type f -a -perm /0100 \) \
-        \) -exec patchelf --set-interpreter ${stdenv.cc.libc}/lib/ld-*so.? \
-                          --set-rpath ${zlib}/lib:${ncurses}/lib {} \;
+        \( -type f -a -perm -0100 \) \
+        \) -exec patchelf --set-interpreter ${stdenv.cc.libc.out}/lib/ld-*so.? \
+                          --set-rpath ${stdenv.lib.makeLibraryPath [ zlib.out ncurses ]} {} \;
     # fix ineffective PROGDIR / MYNDKDIR determination
     for i in ndk-build ndk-gdb ndk-gdb-py
     do

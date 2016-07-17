@@ -12,12 +12,17 @@ stdenv.mkDerivation rec {
 
   doCheck = true;
 
+  # nmcli is included in the network-manager package
+  postInstall = ''
+    rm $out/share/bash-completion/completions/nmcli
+  '';
+
   meta = {
     homepage = "http://bash-completion.alioth.debian.org/";
     description = "Programmable completion for the bash shell";
     license = "GPL";
 
     platforms = stdenv.lib.platforms.unix;
-    maintainers = [ stdenv.lib.maintainers.simons ];
+    maintainers = [ stdenv.lib.maintainers.peti ];
   };
 }

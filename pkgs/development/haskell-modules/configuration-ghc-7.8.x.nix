@@ -38,7 +38,7 @@ self: super: {
   xhtml = null;
 
   # https://github.com/peti/jailbreak-cabal/issues/9
-  jailbreak-cabal = super.jailbreak-cabal.override { Cabal = dontJailbreak self.Cabal_1_20_0_3; };
+  jailbreak-cabal = super.jailbreak-cabal.override { Cabal = dontJailbreak self.Cabal_1_20_0_4; };
 
   # mtl 2.2.x needs the latest transformers.
   mtl_2_2_1 = super.mtl.override { transformers = self.transformers_0_4_3_0; };
@@ -52,7 +52,7 @@ self: super: {
   haddock-api = super.haddock-api_2_15_0_2;
 
   # This is part of bytestring in our compiler.
-  bytestring-builder = triggerRebuild (dontHaddock super.bytestring-builder) 1;
+  bytestring-builder = dontHaddock super.bytestring-builder;
 
   # Won't compile against mtl 2.1.x.
   imports = super.imports.override { mtl = self.mtl_2_2_1; };
@@ -84,10 +84,6 @@ self: super: {
   seqid = super.seqid_0_1_0;
   seqid-streams = super.seqid-streams_0_1_0;
 
-  # Need binary >= 0.7.2, but our compiler has only 0.7.1.0.
-  hosc = super.hosc.overrideScope (self: super: { binary = self.binary_0_7_6_1; });
-  tidal-midi = super.tidal-midi.overrideScope (self: super: { binary = self.binary_0_7_6_1; });
-
   # These packages need mtl 2.2.x directly or indirectly via dependencies.
   amazonka = markBroken super.amazonka;
   apiary-purescript = markBroken super.apiary-purescript;
@@ -116,14 +112,11 @@ self: super: {
                                           self.webkitgtk3-javascriptcore ];
 
   # Needs hashable on pre 7.10.x compilers.
+  nats_1 = addBuildDepend super.nats_1 self.hashable;
   nats = addBuildDepend super.nats self.hashable;
 
   # needs mtl-compat to build with mtl 2.1.x
   cgi = addBuildDepend super.cgi self.mtl-compat;
-
-  # Newer versions always trigger the non-deterministic library ID bug
-  # and are virtually impossible to compile on Hydra.
-  conduit = super.conduit_1_2_4_1;
 
   # https://github.com/magthe/sandi/issues/7
   sandi = overrideCabal super.sandi (drv: {
@@ -132,5 +125,21 @@ self: super: {
 
   # Overriding mtl 2.2.x is fine here because ghc-events is an stand-alone executable.
   ghc-events = super.ghc-events.override { mtl = self.mtl_2_2_1; };
+
+  # The network library is required in configurations that don't have network-uri.
+  hxt = addBuildDepend super.hxt self.network;
+  hxt_9_3_1_7 = addBuildDepend super.hxt_9_3_1_7 self.network;
+  hxt_9_3_1_10 = addBuildDepend super.hxt_9_3_1_10 self.network;
+  hxt_9_3_1_12 = addBuildDepend super.hxt_9_3_1_12 self.network;
+  xss-sanitize = addBuildDepend super.xss-sanitize self.network;
+  xss-sanitize_0_3_5_4 = addBuildDepend super.xss-sanitize_0_3_5_4 self.network;
+  xss-sanitize_0_3_5_5 = addBuildDepend super.xss-sanitize_0_3_5_5 self.network;
+
+  # Needs void on pre 7.10.x compilers.
+  conduit = addBuildDepend super.conduit self.void;
+  conduit_1_2_5 = addBuildDepend super.conduit_1_2_5 self.void;
+
+  # Needs additional inputs on pre 7.10.x compilers.
+  semigroups = addBuildDepends super.semigroups (with self; [nats tagged unordered-containers]);
 
 }

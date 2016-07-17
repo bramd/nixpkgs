@@ -3,7 +3,7 @@
 , gst_ffmpeg, speex
 , libogg, libxml2, libjpeg, mesa, libpng, libungif, libtool
 , boost, freetype, agg, dbus, curl, pkgconfig, gettext
-, glib, gtk, gtkglext, pangox_compat, x11, ming, dejagnu, python, perl
+, glib, gtk, gtkglext, pangox_compat, xlibsWrapper, ming, dejagnu, python, perl
 , freefont_ttf, haxe, swftools
 , lib, makeWrapper
 , xulrunner }:
@@ -34,7 +34,7 @@ stdenv.mkDerivation rec {
     for lib in $libs; do
       echo -n "$lib " >> macros/libslist
     done
-    echo -n "${stdenv.glibc}/lib" >> macros/libslist
+    echo -n "${stdenv.glibc.out}/lib" >> macros/libslist
 
     # Make sure to honor $TMPDIR, for chroot builds.
     for file in configure gui/Makefile.in Makefile.in
@@ -51,7 +51,7 @@ stdenv.mkDerivation rec {
 
   # XXX: KDE is supported as well so we could make it available optionally.
   buildInputs = [
-    gettext x11 SDL SDL_mixer gstreamer gst_plugins_base gst_plugins_good
+    gettext xlibsWrapper SDL SDL_mixer gstreamer gst_plugins_base gst_plugins_good
     gst_ffmpeg speex libtool
     libogg libxml2 libjpeg mesa libpng libungif boost freetype agg
     dbus curl pkgconfig glib gtk gtkglext pangox_compat
@@ -65,7 +65,7 @@ stdenv.mkDerivation rec {
 
   preConfigure =
     '' configureFlags="                                         \
-         --with-sdl-incl=${SDL}/include/SDL                     \
+         --with-sdl-incl=${SDL.dev}/include/SDL                     \
          --with-npapi-plugindir=$out/plugins                    \
          --enable-media=gst                                     \
          --without-gconf
@@ -117,5 +117,6 @@ stdenv.mkDerivation rec {
 
     maintainers = [ ];
     platforms = stdenv.lib.platforms.gnu;
+    broken = true;
   };
 } // {mozillaPlugin = "/plugins";}

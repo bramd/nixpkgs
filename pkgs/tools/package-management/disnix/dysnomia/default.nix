@@ -20,10 +20,10 @@ assert enableEjabberdDump -> ejabberd != null;
 assert enableMongoDatabase -> (mongodb != null && mongodb-tools != null);
 
 stdenv.mkDerivation {
-  name = "dysnomia-0.4";
+  name = "dysnomia-0.6";
   src = fetchurl {
-    url = http://hydra.nixos.org/build/23484767/download/1/dysnomia-0.4.tar.gz;
-    sha256 = "1xyd1gzsy4nlbv2l2lrrs964vvb74yhmb8snr4chf7hcyaybb6cq";
+    url = http://hydra.nixos.org/build/36895408/download/1/dysnomia-0.6.tar.gz;
+    sha256 = "1gg2avj57amxf2qi5zjk0rjyakvy5bqaar2r2151cvjlas1z1alw";
   };
   
   preConfigure = if enableEjabberdDump then "export PATH=$PATH:${ejabberd}/sbin" else "";

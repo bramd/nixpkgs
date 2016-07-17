@@ -1,22 +1,32 @@
 { lib, fetchurl, stdenv, zlib, lzo, libtasn1, nettle, pkgconfig, lzip
-, guileBindings, guile, perl, gmp, autogen, libidn, p11_kit, unbound
-, tpmSupport ? false, trousers
+, guileBindings, guile, perl, gmp, autogen, libidn, p11_kit, unbound, libiconv
+, tpmSupport ? false, trousers, nettools, bash
 
 # Version dependent args
-, version, src, patches ? []
+, version, src, patches ? [], postPatch ? "", nativeBuildInputs ? []
 , ...}:
 
 assert guileBindings -> guile != null;
-
-stdenv.mkDerivation rec {
+let
+  # XXX: Gnulib's `test-select' fails on FreeBSD:
+  # http://hydra.nixos.org/build/2962084/nixlog/1/raw .
+  doCheck = (!stdenv.isFreeBSD && !stdenv.isDarwin);
+in
+stdenv.mkDerivation {
   name = "gnutls-${version}";
 
   inherit src patches;
 
-  outputs = [ "out" "man" ];
+  outputs = [ "dev" "out" "bin" "man" "docdev" ];
+  outputInfo = "docdev";
 
+  postPatch = ''
+    sed '2iecho "name constraints tests skipped due to datefudge problems"\nexit 0' \
+      -i tests/cert-tests/name-constraints
+  '' + postPatch;
+
+  preConfigure = "patchShebangs .";
   configureFlags =
-    # FIXME: perhaps use $SSL_CERT_FILE instead
     lib.optional stdenv.isLinux "--with-default-trust-store-file=/etc/ssl/certs/ca-certificates.crt"
   ++ [
     "--disable-dependency-tracking"
@@ -30,22 +40,23 @@ stdenv.mkDerivation rec {
   enableParallelBuilding = !guileBindings;
 
   buildInputs = [ lzo lzip nettle libtasn1 libidn p11_kit zlib gmp autogen ]
+    ++ lib.optional doCheck nettools
+    ++ lib.optional (stdenv.isFreeBSD || stdenv.isDarwin) libiconv
     ++ lib.optional (tpmSupport && stdenv.isLinux) trousers
     ++ [ unbound ]
     ++ lib.optional guileBindings guile;
 
-  nativeBuildInputs = [ perl pkgconfig ];
+  nativeBuildInputs = [ perl pkgconfig ] ++ nativeBuildInputs;
 
-  # XXX: Gnulib's `test-select' fails on FreeBSD:
-  # http://hydra.nixos.org/build/2962084/nixlog/1/raw .
-  doCheck = (!stdenv.isFreeBSD && !stdenv.isDarwin);
+  inherit doCheck;
 
   # Fixup broken libtool and pkgconfig files
   preFixup = lib.optionalString (!stdenv.isDarwin) ''
     sed ${lib.optionalString tpmSupport "-e 's,-ltspi,-L${trousers}/lib -ltspi,'"} \
-        -e 's,-lz,-L${zlib}/lib -lz,' \
-        -e 's,-lgmp,-L${gmp}/lib -lgmp,' \
-        -i $out/lib/libgnutls.la $out/lib/pkgconfig/gnutls.pc
+        -e 's,-lz,-L${zlib.out}/lib -lz,' \
+        -e 's,-L${gmp.dev}/lib,-L${gmp.out}/lib,' \
+        -e 's,-lgmp,-L${gmp.out}/lib -lgmp,' \
+        -i $out/lib/*.la "$dev/lib/pkgconfig/gnutls.pc"
   '';
 
   meta = with lib; {

@@ -10,7 +10,6 @@ stdenv.mkDerivation rec {
     homepage    = "http://gnu.org/s/guile-sdl";
     license     = licenses.gpl3Plus;
     platforms   = platforms.linux;
-    maintainers = with maintainers; [ iyzsong ];
   };
 
   src = fetchurl {
@@ -21,7 +20,7 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ guile ];
 
   buildInputs = [
-    SDL SDL_image SDL_ttf SDL_mixer
+    SDL.dev SDL_image SDL_ttf SDL_mixer
   ];
 
   GUILE_AUTO_COMPILE = 0;

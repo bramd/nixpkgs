@@ -8,7 +8,7 @@ let
     name = "${baseName}-${version}";
     url = "https://github.com/dlbeer/quirc";
     rev = "3a3df0d1d6adc59fdc2cadecfaed91650b84cacb";
-    sha256 = "0wk2lmnw1k6m12dxs5a684mrm05x362h5kr3dwkfj8pyvdw3am18";
+    sha256 = "1r7jzxl4j93dmky8p5szpcxq7i5f7p1kfrklnzhazlizjc7a2844";
   };
   buildInputs = [
     SDL SDL_gfx libjpeg pkgconfig
@@ -20,13 +20,13 @@ stdenv.mkDerivation {
   src = fetchgit {
     inherit (s) url sha256 rev;
   };
-  NIX_CFLAGS_COMPILE="-I${SDL}/include/SDL";
+  NIX_CFLAGS_COMPILE="-I${SDL.dev}/include/SDL";
   configurePhase = ''
     sed -e 's/-[og] root//g' -i Makefile
   '';
   preInstall = ''
     mkdir -p "$out"/{bin,lib,include}
-    find . -maxdepth 1 -type f -perm +111 -exec cp '{}' "$out"/bin ';'
+    find . -maxdepth 1 -type f -perm -0100 -exec cp '{}' "$out"/bin ';'
   '';
   makeFlags = "PREFIX=$(out)";
   meta = {

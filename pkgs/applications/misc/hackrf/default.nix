@@ -7,7 +7,7 @@ stdenv.mkDerivation rec {
   src = fetchgit {
     url = "git://github.com/mossmann/hackrf";
     rev = "refs/tags/v${version}";
-    sha256 = "0wa4m0kdq8q2ib724w8ry8shmmm1liaaawhjygrjx6zxz9jxr3vm";
+    sha256 = "1mn11yz6hbkmvrbxj5vnp78m5dsny96821a9ffpvbdcwx3s2p23m";
   };
 
   buildInputs = [
@@ -22,7 +22,7 @@ stdenv.mkDerivation rec {
     description = "An open source SDR platform";
     homepage = http://greatscottgadgets.com/hackrf/;
     license = licenses.gpl2;
-    platforms = platforms.linux;
+    platforms = platforms.all;
     maintainers = with maintainers; [ sjmackenzie the-kenny ];
   };
 }

@@ -4,11 +4,11 @@
 }:
 
 stdenv.mkDerivation rec {
-  name = "mediastreamer-2.11.2";
+  name = "mediastreamer-2.12.1";
 
   src = fetchurl {
     url = "mirror://savannah/linphone/mediastreamer/${name}.tar.gz";
-    sha256 = "1g6gawrlz1lixzs1kzckm3rxc401ww8pi00x7r5kb84bdijb02cc";
+    sha256 = "1rzjh2ln8qd6jvfmxlnbrcx2vbajx2j9hblqq2gdn10sf97qvgqd";
   };
 
   patches = [ ./plugins_dir.patch ];
@@ -33,8 +33,10 @@ stdenv.mkDerivation rec {
     "--enable-glx"
   ];
 
+  NIX_CFLAGS_COMPILE = "-Wno-error=deprecated-declarations";
+
   meta = with stdenv.lib; {
-    description = "a powerful and lightweight streaming engine specialized for voice/video telephony applications";
+    description = "A powerful and lightweight streaming engine specialized for voice/video telephony applications";
     homepage = http://www.linphone.org/technical-corner/mediastreamer2/overview;
     license = licenses.gpl2;
     platforms = platforms.linux;

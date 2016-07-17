@@ -41,12 +41,18 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ which ];
   buildInputs = [ readline python icu ];
 
+  NIX_CFLAGS_COMPILE = "-Wno-error=strict-overflow";
+
   buildFlags = [
     "LINK=g++"
     "-C out"
     "builddir=$(CURDIR)/Release"
     "BUILDTYPE=Release"
   ];
+
+  postPatch = stdenv.lib.optionalString (!stdenv.cc.isClang) ''
+    sed -i build/standalone.gyp -e 's,-Wno-format-pedantic,,g'
+  '';
 
   enableParallelBuilding = true;
 
@@ -61,13 +67,13 @@ stdenv.mkDerivation rec {
   '';
 
   postFixup = if stdenv.isDarwin then ''
-    install_name_tool -change /usr/local/lib/libv8.dylib $out/lib/libv8.dylib -change /usr/lib/libgcc_s.1.dylib ${stdenv.cc.cc}/lib/libgcc_s.1.dylib $out/bin/d8
-    install_name_tool -id $out/lib/libv8.dylib -change /usr/lib/libgcc_s.1.dylib ${stdenv.cc.cc}/lib/libgcc_s.1.dylib $out/lib/libv8.dylib
+    install_name_tool -change /usr/local/lib/libv8.dylib $out/lib/libv8.dylib -change /usr/lib/libgcc_s.1.dylib ${stdenv.cc.cc.lib}/lib/libgcc_s.1.dylib $out/bin/d8
+    install_name_tool -id $out/lib/libv8.dylib -change /usr/lib/libgcc_s.1.dylib ${stdenv.cc.cc.lib}/lib/libgcc_s.1.dylib $out/lib/libv8.dylib
   '' else null;
 
   meta = with stdenv.lib; {
     description = "Google's open source JavaScript engine";
-    platforms = with platforms; linux;
+    platforms = platforms.linux;
     license = licenses.bsd3;
   };
 }

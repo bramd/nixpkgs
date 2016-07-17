@@ -10,12 +10,16 @@ buildPerlPackage rec {
 
   propagatedBuildInputs = [ DBI ];
 
-  makeMakerFlags = "SQLITE_LOCATION=${sqlite}";
+  makeMakerFlags = "SQLITE_LOCATION=${sqlite.dev}";
 
   patches = [
     # Support building against our own sqlite.
     ./external-sqlite.patch
   ];
+
+  sqlite_dev = sqlite.dev;
+  sqlite_out = sqlite.out;
+  postPatch = "substituteAllInPlace Makefile.PL; cat Makefile.PL";
 
   preBuild =
     ''

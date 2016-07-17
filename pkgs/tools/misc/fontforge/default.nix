@@ -1,20 +1,19 @@
-{ stdenv, fetchurl, fetchpatch, lib
+{ stdenv, fetchFromGitHub, fetchpatch, lib
 , autoconf, automake, gnum4, libtool, git, perl, gnulib, uthash, pkgconfig, gettext
 , python, freetype, zlib, glib, libungif, libpng, libjpeg, libtiff, libxml2, pango
 , withGTK ? false, gtk2
-, withPython ? false # python-scripting was breaking inconsolata and libertine builds
+, withPython ? true
 }:
 
-let
-  version = "20141230"; # also tagged v2.1.0
-in
-
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
   name = "fontforge-${version}";
+  version = "20160404";
 
-  src = fetchurl {
-    url = "https://github.com/fontforge/fontforge/archive/${version}.tar.gz";
-    sha256 = "1xfi13knn1x7hd7pvr6090qz6qfa5znbs85rg1p5mfj377z2h8rb";
+  src = fetchFromGitHub {
+    owner = "fontforge";
+    repo = "fontforge";
+    rev = version;
+    sha256 = "15nacq84n9gvlzp3slpmfrrbh57kfb6lbdlc46i7aqgci4qv6fg0";
   };
 
   patches = [(fetchpatch {
@@ -29,10 +28,9 @@ stdenv.mkDerivation {
   buildInputs = [
     git autoconf automake gnum4 libtool perl pkgconfig gettext uthash
     python freetype zlib glib libungif libpng libjpeg libtiff libxml2
+    pango
   ]
-    ++ lib.optionals withGTK [ gtk2 ]
-    # I'm not sure why pango doesn't seem necessary on Linux
-    ++ lib.optionals stdenv.isDarwin [ pango ];
+    ++ lib.optionals withGTK [ gtk2 ];
 
   configureFlags =
     lib.optionals (!withPython) [ "--disable-python-scripting" "--disable-python-extension" ]

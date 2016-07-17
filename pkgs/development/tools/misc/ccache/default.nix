@@ -1,15 +1,11 @@
-{ stdenv, fetchurl, runCommand, gcc, zlib }:
+{ stdenv, fetchurl, fetchpatch, runCommand, gcc, zlib }:
 
-let
+let ccache = stdenv.mkDerivation rec {
   name = "ccache-${version}";
-  version = "3.2.3";
-  sha256 = "03k0fvblwqb80zwdgas8a5fjrwvghgsn587wp3lfr0jr8gy1817c";
+  version = "3.2.5";
 
-  ccache =
-stdenv.mkDerivation {
-  inherit name;
   src = fetchurl {
-    inherit sha256;
+    sha256 = "11db1g109g0g5si0s50yd99ja5f8j4asxb081clvx78r9d9i2w0i";
     url = "mirror://samba/ccache/${name}.tar.xz";
   };
 
@@ -24,9 +20,14 @@ stdenv.mkDerivation {
   passthru = {
     # A derivation that provides gcc and g++ commands, but that
     # will end up calling ccache for the given cacheDir
-    links = extraConfig: (runCommand "ccache-links"
-      { passthru.gcc = gcc; passthru.isGNU = true; }
-      ''
+    links = extraConfig: stdenv.mkDerivation rec {
+      name = "ccache-links";
+      passthru = {
+        inherit gcc;
+        isGNU = true;
+      };
+      inherit (gcc.cc) lib;
+      buildCommand = ''
         mkdir -p $out/bin
         if [ -x "${gcc.cc}/bin/gcc" ]; then
           cat > $out/bin/gcc << EOF
@@ -49,11 +50,14 @@ stdenv.mkDerivation {
             ln -s ${gcc.cc}/bin/$executable $out/bin/$executable
           fi
         done
-      '');
+        for file in $(ls ${gcc.cc} | grep -vw bin); do
+          ln -s ${gcc.cc}/$file $out/$file
+        done
+      '';
+    };
   };
 
   meta = with stdenv.lib; {
-    inherit version;
     description = "Compiler cache for fast recompilation of C/C++ code";
     homepage = http://ccache.samba.org/;
     downloadPage = https://ccache.samba.org/download.html;
@@ -61,5 +65,4 @@ stdenv.mkDerivation {
     maintainers = with maintainers; [ nckx ];
   };
 };
-in
-ccache
+in ccache

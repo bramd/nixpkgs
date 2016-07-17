@@ -1,28 +1,31 @@
-{ fetchurl, stdenv, gettext, intltool, pkgconfig, makeWrapper
-, geoclue, python, pygobject3, pyxdg
-, libdrm, libX11, libxcb, libXxf86vm
-, guiSupport ? true
-, drmSupport ? true
-, randrSupport ? true
-, vidModeSupport ? true
+{ fetchurl, stdenv, gettext, intltool, makeWrapper, pkgconfig
+, geoclue2
+, guiSupport ? true, hicolor_icon_theme, gtk3, python, pygobject3, pyxdg
+, drmSupport ? true, libdrm
+, randrSupport ? true, libxcb
+, vidModeSupport ? true, libX11, libXxf86vm
 }:
 
 let
-  version = "1.10";
-  mkFlag = flag: name: if flag then "--enable-${name}" else "--disable-${name}";
+  mkFlag = flag: name: if flag
+    then "--enable-${name}"
+    else "--disable-${name}";
 in
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
   name = "redshift-${version}";
+  version = "1.11";
+
   src = fetchurl {
-    sha256 = "19pfk9il5x2g2ivqix4a555psz8mj3m0cvjwnjpjvx0llh5fghjv";
+    sha256 = "0ngkwj7rg8nfk806w0sg443w6wjr91xdc0zisqfm5h2i77wm1qqh";
     url = "https://github.com/jonls/redshift/releases/download/v${version}/redshift-${version}.tar.xz";
   };
 
-  buildInputs = [ geoclue ]
-    ++ stdenv.lib.optional guiSupport [ python pygobject3 pyxdg ]
-    ++ stdenv.lib.optional drmSupport [ libdrm ]
-    ++ stdenv.lib.optional randrSupport [ libxcb ]
-    ++ stdenv.lib.optional vidModeSupport [ libX11 libXxf86vm ];
+  buildInputs = [ geoclue2 ]
+    ++ stdenv.lib.optionals guiSupport [ hicolor_icon_theme gtk3 python
+      pygobject3 pyxdg ]
+    ++ stdenv.lib.optionals drmSupport [ libdrm ]
+    ++ stdenv.lib.optionals randrSupport [ libxcb ]
+    ++ stdenv.lib.optionals vidModeSupport [ libX11 libXxf86vm ];
   nativeBuildInputs = [ gettext intltool makeWrapper pkgconfig ];
 
   configureFlags = [
@@ -32,17 +35,23 @@ stdenv.mkDerivation {
     (mkFlag vidModeSupport "vidmode")
   ];
 
+  enableParallelBuilding = true;
+
   preInstall = stdenv.lib.optionalString guiSupport ''
-    substituteInPlace src/redshift-gtk/redshift-gtk python \
+    substituteInPlace src/redshift-gtk/redshift-gtk \
       --replace "/usr/bin/env python3" "${python}/bin/${python.executable}"
   '';
 
   postInstall = stdenv.lib.optionalString guiSupport ''
-    wrapProgram "$out/bin/redshift-gtk" --prefix PYTHONPATH : "$PYTHONPATH"
+    wrapProgram "$out/bin/redshift-gtk" \
+      --prefix PYTHONPATH : "$PYTHONPATH" \
+      --prefix GI_TYPELIB_PATH : "$GI_TYPELIB_PATH" \
+      --prefix XDG_DATA_DIRS : "$out/share:${hicolor_icon_theme}/share"
+
+    install -Dm644 {.,$out/share/doc/redshift}/redshift.conf.sample
   '';
 
   meta = with stdenv.lib; {
-    inherit version;
     description = "Gradually change screen color temperature";
     longDescription = ''
       The color temperature is set according to the position of the

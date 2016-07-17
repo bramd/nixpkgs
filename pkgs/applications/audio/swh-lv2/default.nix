@@ -6,11 +6,11 @@ stdenv.mkDerivation rec {
   src = fetchgit {
     url = "https://github.com/swh/lv2.git";
     rev = "978d5d8f549fd22048157a6d044af0faeaacbd7f";
-    sha256 = "3a9c042785b856623339aedafa5bc019b41beb8034d8594c7bbd6c9c26368065";
+    sha256 = "10jj8sp67caxvmzjxwyzapc34jpry5nrkkp49kyyvyk5dgkpbsjw";
   };
 
   patchPhase = ''
-    sed -e "s#xsltproc#${libxslt}/bin/xsltproc#" -i Makefile
+    sed -e "s#xsltproc#${libxslt.bin}/bin/xsltproc#" -i Makefile
     sed -e "s#PREFIX = /usr/local#PREFIX = $out#" -i Makefile
   '';
 

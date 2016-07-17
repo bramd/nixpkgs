@@ -1,23 +1,34 @@
-{ stdenv, fetchgit, python, buildPythonPackage, qt5, pyqt5, jinja2, pygments, pyyaml, pypeg2 }:
+{ stdenv, fetchurl, python, buildPythonApplication, qtmultimedia, pyqt5
+, jinja2, pygments, pyyaml, pypeg2, gst-plugins-base, gst-plugins-good
+, gst-plugins-bad, gst-libav, wrapGAppsHook, glib_networking, makeQtWrapper }:
 
-let version = "0.3"; in
+let version = "0.7.0"; in
 
-buildPythonPackage {
+buildPythonApplication rec {
   name = "qutebrowser-${version}";
   namePrefix = "";
 
-  src = fetchgit {
-    url = "https://github.com/The-Compiler/qutebrowser.git";
-    rev = "b3cd31a808789932a0a4cb7aa8d9280b6d3a12e7";
-    sha256 = "fea7fd9de8a930da7af0111739ae88851cb965b30751858d1aba5bbd15277652";
+  src = fetchurl {
+    url = "https://github.com/The-Compiler/qutebrowser/releases/download/v${version}/${name}.tar.gz";
+    sha256 = "17xvv4h86frcn7zmi0y9gjsz2cazlb59v3dqi9mdc11w00b1cqbn";
   };
 
   # Needs tox
   doCheck = false;
 
+  buildInputs = [ wrapGAppsHook makeQtWrapper
+    qtmultimedia
+    gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav
+    glib_networking ];
+
   propagatedBuildInputs = [
     python pyyaml pyqt5 jinja2 pygments pypeg2
   ];
+
+  postInstall = ''
+    mv $out/bin/qutebrowser $out/bin/.qutebrowser-noqtpath
+    makeQtWrapper $out/bin/.qutebrowser-noqtpath $out/bin/qutebrowser
+  '';
 
   meta = {
     homepage = https://github.com/The-Compiler/qutebrowser;

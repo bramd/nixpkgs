@@ -11,11 +11,15 @@ in
     ./afterstep.nix
     ./bspwm.nix
     ./compiz.nix
+    ./dwm.nix
+    ./exwm.nix
     ./fluxbox.nix
     ./herbstluftwm.nix
     ./i3.nix
+    ./jwm.nix
     ./metacity.nix
     ./openbox.nix
+    ./pekwm.nix
     ./notion.nix
     ./ratpoison.nix
     ./sawfish.nix

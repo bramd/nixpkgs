@@ -10,7 +10,8 @@ let
       inherit sha256;
     };
 
-    outputs = [ "out" "doc" ];
+    outputs = [ "out" "lib" "doc" ];
+    setOutputFlags = false; # $out retains configureFlags :-/
 
     buildInputs =
       [ zlib readline openssl ]
@@ -20,24 +21,38 @@ let
 
     makeFlags = [ "world" ];
 
-    configureFlags =
-      [ "--with-openssl" ]
+    configureFlags = [
+      "--with-openssl"
+      "--sysconfdir=/etc"
+      "--libdir=$(lib)/lib"
+    ]
       ++ lib.optional (stdenv.isDarwin)  "--with-uuid=e2fs"
       ++ lib.optional (!stdenv.isDarwin) "--with-ossp-uuid";
 
     patches =
       [ (if lib.versionAtLeast version "9.4" then ./disable-resolve_symlinks-94.patch else ./disable-resolve_symlinks.patch)
         ./less-is-more.patch
+        ./hardcode-pgxs-path.patch
       ];
 
     installTargets = [ "install-world" ];
 
     LC_ALL = "C";
 
+    postConfigure =
+      ''
+        # Hardcode the path to pgxs so pg_config returns the path in $out
+        substituteInPlace "src/bin/pg_config/pg_config.c" --replace HARDCODED_PGXS_PATH $out/lib
+      '';
+
     postInstall =
       ''
+        moveToOutput "lib/pgxs" "$out" # looks strange, but not deleting it
+        moveToOutput "lib/*.a" "$out"
+        moveToOutput "lib/libecpg*" "$out"
+
         # Prevent a retained dependency on gcc-wrapper.
-        substituteInPlace $out/lib/pgxs/src/Makefile.global --replace ${stdenv.cc}/bin/ld ld
+        substituteInPlace "$out/lib/pgxs/src/Makefile.global" --replace ${stdenv.cc}/bin/ld ld
       '';
 
     disallowedReferences = [ stdenv.cc ];
@@ -58,34 +73,35 @@ let
 
 in {
 
-  postgresql90 = common {
-    version = "9.0.22";
-    psqlSchema = "9.0";
-    sha256 = "19gq6axjhvlr5zlrzwnll1fbrvai4xh0nb1jki6gmmschl6v5m4l";
-  };
-
   postgresql91 = common {
-    version = "9.1.18";
+    version = "9.1.21";
     psqlSchema = "9.1";
-    sha256 = "1a44hmcvfaa8j169ladsibmvjakw6maaxqkzz1ab8139cqkda9i7";
+    sha256 = "14xkvv7ph7yh399wppqpil9lgh1vw53nyg5ynk5a8j9idw3yjvnn";
   };
 
   postgresql92 = common {
-    version = "9.2.13";
+    version = "9.2.16";
     psqlSchema = "9.2";
-    sha256 = "0i3avdr8mnvn6ldkx0hc4jmclhisb2338hzs0j2m03wck8hddjsx";
+    sha256 = "048vfkq58kkhcrw5vj4vplgvxia1k0lrbhbi30b2iy3bf2w4q5nj";
   };
 
   postgresql93 = common {
-    version = "9.3.9";
+    version = "9.3.12";
     psqlSchema = "9.3";
-    sha256 = "0j85j69rf54cwz5yhrhk4ca22b82990j5sqb8cr1fl9843nd0fzp";
+    sha256 = "0rrf24mw68lwxjjnbbaayizhhcylwnr7ij5d60vpzl467yi9wczk";
   };
 
   postgresql94 = common {
-    version = "9.4.4";
+    version = "9.4.7";
     psqlSchema = "9.4";
-    sha256 = "04q07g209y99xzjh88y52qpvz225rxwifv8nzp3bxzfni2bdk3jk";
+    sha256 = "1q41bwwa4x1ff2qzlrsfia25ys5gfrihbqwib1z6j3mk6mn5wyfc";
   };
+
+  postgresql95 = common {
+    version = "9.5.3";
+    psqlSchema = "9.5";
+    sha256 = "1d500d2qsdzysnis6qi84xchnz5xh8kx8sjfmkbsijwaqlfw11bk";
+  };
+
 
 }

@@ -3,21 +3,21 @@
 with stdenv.lib;
 
 stdenv.mkDerivation rec {
-  name = "openvpn-2.3.7";
+  name = "openvpn-2.3.11";
 
   src = fetchurl {
     url = "http://swupdate.openvpn.net/community/releases/${name}.tar.gz";
-    sha256 = "0vhl0ddpxqfibc0ah0ci7ix9bs0cn5shhmhijg550qpbdb6s80hz";
+    sha256 = "0qv1flcz4q4mb7zpkxsnlmpvrv3s9gw7xvprjk7n2pnk9x1s85wi";
   };
 
   patches = optional stdenv.isLinux ./systemd-notify.patch;
 
-  buildInputs = [ iproute lzo openssl pam pkgconfig ] ++ optional stdenv.isLinux systemd;
+  buildInputs = [ lzo openssl pkgconfig ]
+                  ++ optionals stdenv.isLinux [ pam systemd iproute ];
 
-  configureFlags = ''
-    --enable-password-save
-    --enable-iproute2
+  configureFlags = optionalString stdenv.isLinux ''
     --enable-systemd
+    --enable-iproute2
     IPROUTE=${iproute}/sbin/ip
   '';
 
@@ -29,8 +29,6 @@ stdenv.mkDerivation rec {
   '';
 
   enableParallelBuilding = true;
-
-  NIX_LDFLAGS = optionalString stdenv.isLinux "-lsystemd-daemon"; # hacky
 
   meta = {
     description = "A robust and highly flexible tunneling application";

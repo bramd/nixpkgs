@@ -1,43 +1,51 @@
-{ stdenv, fetchurl, automake, pkgconfig
-, cups, zlib, libjpeg, libusb1, pythonPackages, saneBackends, dbus, usbutils
-, polkit, qtSupport ? true, qt4, pyqt4, net_snmp
-, withPlugin ? false, substituteAll, makeWrapper
+{ stdenv, fetchurl, substituteAll
+, pkgconfig
+, cups, zlib, libjpeg, libusb1, pythonPackages, sane-backends, dbus, usbutils
+, net_snmp, openssl, polkit
+, bash, coreutils, utillinux
+, qtSupport ? true, qt4, pyqt4
+, withPlugin ? false
 }:
 
 let
 
-  # Version 3.15.7 breaks certain (but not all) PCL-based printers:
-  # https://github.com/NixOS/nixpkgs/commit/b0e46fc3ead209ef24ed6214bd41ef6e604af54f
-  version = "3.15.6";
-
   name = "hplip-${version}";
+  version = "3.16.5";
 
   src = fetchurl {
     url = "mirror://sourceforge/hplip/${name}.tar.gz";
-    sha256 = "1jbnjw7vrn1qawrjfdv8j58w69q8ki1qkzvlh0nk8nxacpp17i9h";
+    sha256 = "1nay65q1zmx2jxiwn66n7mlr73azacz5097gw98kqqf90dh522f6";
   };
 
   plugin = fetchurl {
     url = "http://www.openprinting.org/download/printdriver/auxfiles/HP/plugins/${name}-plugin.run";
-    sha256 = "1rymxahz12s1s37rri5qyvka6q0yi0yai08kgspg24176ry3a3fx";
+    sha256 = "15qrcd3ndnxri6pfdfmsjyv2f3zfkig80yghs76jbsm106rp8g3q";
   };
 
-  hplip_state =
+  hplipState =
     substituteAll
       {
         inherit version;
         src = ./hplip.state;
       };
 
-  hplip_arch =
+  hplipPlatforms =
     {
-      "i686-linux" = "x86_32";
+      "i686-linux"   = "x86_32";
       "x86_64-linux" = "x86_64";
-      "arm6l-linux" = "arm32";
-      "arm7l-linux" = "arm32";
-    }."${stdenv.system}" or (abort "Unsupported platform ${stdenv.system}");
+      "armv6l-linux" = "arm32";
+      "armv7l-linux" = "arm32";
+    };
+
+  hplipArch = hplipPlatforms."${stdenv.system}"
+    or (throw "HPLIP not supported on ${stdenv.system}");
+
+  pluginArches = [ "x86_32" "x86_64" ];
 
 in
+
+assert withPlugin -> builtins.elem hplipArch pluginArches
+  || throw "HPLIP plugin not supported on ${stdenv.system}";
 
 stdenv.mkDerivation {
   inherit name src;
@@ -48,10 +56,14 @@ stdenv.mkDerivation {
     libusb1
     pythonPackages.python
     pythonPackages.wrapPython
-    saneBackends
+    sane-backends
     dbus
     net_snmp
-  ] ++ stdenv.lib.optional qtSupport qt4;
+    openssl
+  ] ++ stdenv.lib.optionals qtSupport [
+    qt4
+  ];
+
   nativeBuildInputs = [
     pkgconfig
   ];
@@ -63,14 +75,16 @@ stdenv.mkDerivation {
     recursivePthLoader
     reportlab
     usbutils
-  ] ++ stdenv.lib.optional qtSupport pyqt4;
+  ] ++ stdenv.lib.optionals qtSupport [
+    pyqt4
+  ];
 
   prePatch = ''
     # HPLIP hardcodes absolute paths everywhere. Nuke from orbit.
     find . -type f -exec sed -i \
       -e s,/etc/hp,$out/etc/hp, \
       -e s,/etc/sane.d,$out/etc/sane.d, \
-      -e s,/usr/include/libusb-1.0,${libusb1}/include/libusb-1.0, \
+      -e s,/usr/include/libusb-1.0,${libusb1.dev}/include/libusb-1.0, \
       -e s,/usr/share/hal/fdi/preprobe/10osvendor,$out/share/hal/fdi/preprobe/10osvendor, \
       -e s,/usr/lib/systemd/system,$out/lib/systemd/system, \
       -e s,/var/lib/hp,$out/var/lib/hp, \
@@ -100,14 +114,7 @@ stdenv.mkDerivation {
 
   enableParallelBuilding = true;
 
-  postInstall =
-    (stdenv.lib.optionalString withPlugin
-    (let hplip_arch =
-          if stdenv.system == "i686-linux" then "x86_32"
-          else if stdenv.system == "x86_64-linux" then "x86_64"
-          else abort "Plugin platform must be i686-linux or x86_64-linux!";
-    in
-    ''
+  postInstall = stdenv.lib.optionalString withPlugin ''
     sh ${plugin} --noexec --keep
     cd plugin_tmp
 
@@ -121,26 +128,26 @@ stdenv.mkDerivation {
 
     mkdir -p $out/share/hplip/prnt/plugins
     for plugin in lj hbpl1; do
-      cp $plugin-${hplip_arch}.so $out/share/hplip/prnt/plugins
-      ln -s $out/share/hplip/prnt/plugins/$plugin-${hplip_arch}.so \
+      cp $plugin-${hplipArch}.so $out/share/hplip/prnt/plugins
+      ln -s $out/share/hplip/prnt/plugins/$plugin-${hplipArch}.so \
         $out/share/hplip/prnt/plugins/$plugin.so
     done
 
     mkdir -p $out/share/hplip/scan/plugins
     for plugin in bb_soap bb_marvell bb_soapht fax_marvell; do
-      cp $plugin-${hplip_arch}.so $out/share/hplip/scan/plugins
-      ln -s $out/share/hplip/scan/plugins/$plugin-${hplip_arch}.so \
+      cp $plugin-${hplipArch}.so $out/share/hplip/scan/plugins
+      ln -s $out/share/hplip/scan/plugins/$plugin-${hplipArch}.so \
         $out/share/hplip/scan/plugins/$plugin.so
     done
 
     mkdir -p $out/var/lib/hp
-    cp ${hplip_state} $out/var/lib/hp/hplip.state
+    cp ${hplipState} $out/var/lib/hp/hplip.state
 
     mkdir -p $out/etc/sane.d/dll.d
     mv $out/etc/sane.d/dll.conf $out/etc/sane.d/dll.d/hpaio.conf
 
     rm $out/etc/udev/rules.d/56-hpmud.rules
-  ''));
+  '';
 
   fixupPhase = ''
     # Wrap the user-facing Python scripts in $out/bin without turning the
@@ -169,10 +176,17 @@ stdenv.mkDerivation {
     wrapPythonProgramsIn $out/lib "$out $pythonPath"
 
     substituteInPlace $out/etc/hp/hplip.conf --replace /usr $out
+  '' + stdenv.lib.optionalString (!withPlugin) ''
+    # A udev rule to notify users that they need the binary plugin.
+    # Needs a lot of patching but might save someone a bit of confusion:
+    substituteInPlace $out/etc/udev/rules.d/56-hpmud.rules \
+      --replace {,${bash}}/bin/sh \
+      --replace {/usr,${coreutils}}/bin/nohup \
+      --replace {,${utillinux}/bin/}logger \
+      --replace {/usr,$out}/bin
   '';
 
   meta = with stdenv.lib; {
-    inherit version;
     description = "Print, scan and fax HP drivers for Linux";
     homepage = http://hplipopensource.com/;
     license = if withPlugin

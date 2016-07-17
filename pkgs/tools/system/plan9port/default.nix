@@ -1,7 +1,9 @@
 {stdenv, fetchgit, which, libX11, libXt, fontconfig
 , xproto ? null
 , xextproto ? null
-, libXext ? null }:
+, libXext ? null
+  # For building web manuals
+, perl ? null }:
 
 stdenv.mkDerivation rec {
   name = "plan9port-2015-06-29";
@@ -10,7 +12,7 @@ stdenv.mkDerivation rec {
     # Latest, same as on github, google code is old
     url = "https://plan9port.googlesource.com/plan9";
     rev = "71de840";
-    sha256 = "1ffece7c0a5775a8bde6a0618c7ae3da4048449008a19e6623e8e5553f133b4c";
+    sha256 = "002ma7h7z3wii520dhijikwdc679hpwn0jv5a0c8g299drvzq2wx";
   };
 
   patches = [ ./fontsrv.patch ];
@@ -23,7 +25,17 @@ stdenv.mkDerivation rec {
   builder = ./builder.sh;
 
   NIX_LDFLAGS="-lgcc_s";
-  buildInputs = stdenv.lib.optionals (!stdenv.isDarwin) [ which libX11 fontconfig xproto libXt xextproto libXext ];
+  buildInputs = stdenv.lib.optionals
+                  (!stdenv.isDarwin)
+                  [ which
+                    perl
+                    libX11
+                    fontconfig
+                    xproto
+                    libXt
+                    xextproto
+                    libXext
+                  ];
 
   enableParallelBuilding = true;
 
@@ -35,6 +47,6 @@ stdenv.mkDerivation rec {
     platforms = platforms.unix;
   };
 
-  inherit libXt;
-  inherit fontconfig;
+  libXt_dev = libXt.dev;
+  fontconfig_dev = fontconfig.dev;
 }

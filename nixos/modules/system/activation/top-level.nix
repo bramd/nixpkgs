@@ -67,7 +67,7 @@ let
 
       echo -n "$configurationName" > $out/configuration-name
       echo -n "systemd ${toString config.systemd.package.interfaceVersion}" > $out/init-interface-version
-      echo -n "$nixosVersion" > $out/nixos-version
+      echo -n "$nixosLabel" > $out/nixos-version
       echo -n "$system" > $out/system
 
       mkdir $out/fine-tune
@@ -99,7 +99,9 @@ let
   # makes it bootable.
   baseSystem = showWarnings (
     if [] == failed then pkgs.stdenv.mkDerivation {
-      name = "nixos-${config.system.nixosVersion}";
+      name = let hn = config.networking.hostName;
+                 nn = if (hn != "") then hn else "unnamed";
+          in "nixos-system-${nn}-${config.system.nixosLabel}";
       preferLocalBuild = true;
       allowSubstitutes = false;
       buildCommand = systemBuilder;
@@ -113,7 +115,7 @@ let
         config.system.build.installBootLoader
         or "echo 'Warning: do not know how to make this configuration bootable; please enable a boot loader.' 1>&2; true";
       activationScript = config.system.activationScripts.script;
-      nixosVersion = config.system.nixosVersion;
+      nixosLabel = config.system.nixosLabel;
 
       configurationName = config.boot.loader.grub.configurationName;
 
@@ -176,9 +178,10 @@ in
       default = false;
       description = ''
         If enabled, copies the NixOS configuration file
-        <literal>$NIXOS_CONFIG</literal> (usually
-        <filename>/etc/nixos/configuration.nix</filename>)
-        to the system store path.
+        (usually <filename>/etc/nixos/configuration.nix</filename>)
+        and links it from the resulting system
+        (getting to <filename>/run/current-system/configuration.nix</filename>).
+        Note that only this single file is copied, even if it imports others.
       '';
     };
 
@@ -203,7 +206,7 @@ in
 
     system.replaceRuntimeDependencies = mkOption {
       default = [];
-      example = lib.literalExample "[ ({ original = pkgs.openssl; replacement = pkgs.callPackage /path/to/openssl { ... }; }) ]";
+      example = lib.literalExample "[ ({ original = pkgs.openssl; replacement = pkgs.callPackage /path/to/openssl { }; }) ]";
       type = types.listOf (types.submodule (
         { options, ... }: {
           options.original = mkOption {
@@ -236,7 +239,9 @@ in
     system.extraSystemBuilderCmds =
       optionalString
         config.system.copySystemConfiguration
-        "cp ${maybeEnv "NIXOS_CONFIG" "/etc/nixos/configuration.nix"} $out";
+        ''ln -s '${import ../../../lib/from-env.nix "NIXOS_CONFIG" <nixos-config>}' \
+            "$out/configuration.nix"
+        '';
 
     system.build.toplevel = system;
 

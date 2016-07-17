@@ -3,11 +3,11 @@
 }:
 
 stdenv.mkDerivation rec {
-  name = "global-6.5";
+  name = "global-6.5.4";
 
   src = fetchurl {
     url = "mirror://gnu/global/${name}.tar.gz";
-    sha256 = "1af6lhwhrpdnigd3707fnk3dd6y53pbc4g0i75xjf0563bdi5zaa";
+    sha256 = "19hxajpwld6qx0faz4rzyh1hfs25ycjmws6bas8pavx4hskf05mg";
   };
 
   nativeBuildInputs = [ libtool makeWrapper ];
@@ -18,9 +18,9 @@ stdenv.mkDerivation rec {
 
   configureFlags = [
     "--with-ltdl-include=${libtool}/include"
-    "--with-ltdl-lib=${libtool}/lib"
-    "--with-ncurses=${ncurses}"
-    "--with-sqlite3=${sqlite}"
+    "--with-ltdl-lib=${libtool.lib}/lib"
+    "--with-ncurses=${ncurses.dev}"
+    "--with-sqlite3=${sqlite.dev}"
     "--with-exuberant-ctags=${ctags}/bin/ctags"
     "--with-posix-sort=${coreutils}/bin/sort"
   ];

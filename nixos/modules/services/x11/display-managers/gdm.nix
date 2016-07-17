@@ -20,7 +20,13 @@ in
 
       enable = mkEnableOption ''
         GDM as the display manager.
-        <emphasis>GDM is very experimental and may render system unusable.</emphasis>
+        <emphasis>GDM in NixOS is not well-tested with desktops other
+        than GNOME, so use with caution, as it could render the
+        system unusable.</emphasis>
+      '';
+
+      debug = mkEnableOption ''
+        debugging messages in GDM
       '';
 
       autoLogin = mkOption {
@@ -102,19 +108,27 @@ in
     systemd.services.display-manager.wants = [ "systemd-machined.service" ];
     systemd.services.display-manager.after = [ "systemd-machined.service" ];
 
-    systemd.services.display-manager.path = [ gnome3.gnome_shell gnome3.caribou pkgs.xlibs.xhost pkgs.dbus_tools ];
+    systemd.services.display-manager.path = [ gnome3.gnome_shell gnome3.caribou pkgs.xorg.xhost pkgs.dbus_tools ];
 
     services.dbus.packages = [ gdm ];
 
     programs.dconf.profiles.gdm = "${gdm}/share/dconf/profile/gdm";
 
+    # Use AutomaticLogin if delay is zero, because it's immediate.
+    # Otherwise with TimedLogin with zero seconds the prompt is still
+    # presented and there's a little delay.
     environment.etc."gdm/custom.conf".text = ''
       [daemon]
-      ${optionalString cfg.gdm.autoLogin.enable ''
-      TimedLoginEnable=true
-      TimedLogin=${cfg.gdm.autoLogin.user}
-      TimedLoginDelay=${toString cfg.gdm.autoLogin.delay}
-      ''}
+      ${optionalString cfg.gdm.autoLogin.enable (
+        if cfg.gdm.autoLogin.delay > 0 then ''
+          TimedLoginEnable=true
+          TimedLogin=${cfg.gdm.autoLogin.user}
+          TimedLoginDelay=${toString cfg.gdm.autoLogin.delay}
+        '' else ''
+          AutomaticLoginEnable=true
+          AutomaticLogin=${cfg.gdm.autoLogin.user}
+        '')
+      }
 
       [security]
 
@@ -125,6 +139,7 @@ in
       [chooser]
 
       [debug]
+      ${optionalString cfg.gdm.debug "Enable=true"}
     '';
 
     # GDM LFS PAM modules, adapted somehow to NixOS
@@ -147,7 +162,7 @@ in
 
       gdm.text = ''
         auth     requisite      pam_nologin.so
-        auth     required       pam_env.so
+        auth     required       pam_env.so envfile=${config.system.build.pamEnvironment}
 
         auth     required       pam_succeed_if.so uid >= 1000 quiet
         auth     optional       ${gnome3.gnome_keyring}/lib/security/pam_gnome_keyring.so

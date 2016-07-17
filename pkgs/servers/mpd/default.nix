@@ -21,22 +21,25 @@
 , jackSupport ? true, libjack2
 , gmeSupport ? true, game-music-emu
 , icuSupport ? true, icu
-, clientSupport ? false, mpd_clientlib
+, clientSupport ? true, mpd_clientlib
 , opusSupport ? true, libopus
+, soundcloudSupport ? true, yajl
 }:
 
 let
   opt = stdenv.lib.optional;
   mkFlag = c: f: if c then "--enable-${f}" else "--disable-${f}";
   major = "0.19";
-  minor = "9";
+  minor = "15";
 
 in stdenv.mkDerivation rec {
   name = "mpd-${major}.${minor}";
   src = fetchurl {
     url    = "http://www.musicpd.org/download/mpd/${major}/${name}.tar.xz";
-    sha256 = "0vzj365s4j0pw5w37lfhx3dmpkdp85driravsvx8rlrw0lii91a7";
+    sha256 = "12wvqb5r3q77x78wigmrsz3vv8rykcfnavffcvlqq0sbi4is5f8c";
   };
+
+  patches = stdenv.lib.optionals stdenv.isDarwin ./darwin-enable-cxx-exceptions.patch;
 
   buildInputs = [ pkgconfig glib boost ]
     ++ opt stdenv.isLinux systemd
@@ -60,12 +63,13 @@ in stdenv.mkDerivation rec {
     ++ opt mpg123Support mpg123
     ++ opt aacSupport faad2
     ++ opt zipSupport zziplib
-    ++ opt pulseaudioSupport libpulseaudio
-    ++ opt jackSupport libjack2
+    ++ opt (!stdenv.isDarwin && pulseaudioSupport) libpulseaudio
+    ++ opt (!stdenv.isDarwin && jackSupport) libjack2
     ++ opt gmeSupport game-music-emu
     ++ opt icuSupport icu
     ++ opt clientSupport mpd_clientlib
-    ++ opt opusSupport libopus;
+    ++ opt opusSupport libopus
+    ++ opt soundcloudSupport yajl;
 
   configureFlags =
     [ (mkFlag (!stdenv.isDarwin && alsaSupport) "alsa")
@@ -87,13 +91,14 @@ in stdenv.mkDerivation rec {
       (mkFlag mmsSupport "mms")
       (mkFlag mpg123Support "mpg123")
       (mkFlag aacSupport "aac")
-      (mkFlag pulseaudioSupport "pulse")
-      (mkFlag jackSupport "jack")
+      (mkFlag (!stdenv.isDarwin && pulseaudioSupport) "pulse")
+      (mkFlag (!stdenv.isDarwin && jackSupport) "jack")
       (mkFlag stdenv.isDarwin "osx")
       (mkFlag icuSupport "icu")
       (mkFlag gmeSupport "gme")
       (mkFlag clientSupport "libmpdclient")
       (mkFlag opusSupport "opus")
+      (mkFlag soundcloudSupport "soundcloud")
       "--enable-debug"
     ]
     ++ opt stdenv.isLinux
@@ -107,7 +112,7 @@ in stdenv.mkDerivation rec {
     description = "A flexible, powerful daemon for playing music";
     homepage    = http://mpd.wikia.com/wiki/Music_Player_Daemon_Wiki;
     license     = licenses.gpl2;
-    maintainers = with maintainers; [ astsmtl fuuzetsu emery ];
+    maintainers = with maintainers; [ astsmtl fuuzetsu ehmry ];
     platforms   = platforms.unix;
 
     longDescription = ''

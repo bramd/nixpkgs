@@ -20,43 +20,48 @@
 , ghcjs-prim
 , regex-posix
 
-, ghc, gmp
+, bootPkgs, gmp
 , jailbreak-cabal
 
+, runCommand
 , nodejs, stdenv, filepath, HTTP, HUnit, mtl, network, QuickCheck, random, stm
 , time
 , zlib, aeson, attoparsec, bzlib, hashable
 , lens
 , parallel, safe, shelly, split, stringsearch, syb
 , tar, terminfo
-, vector, yaml, fetchgit, Cabal
+, vector, yaml, fetchgit, fetchFromGitHub, Cabal
 , alex, happy, git, gnumake, autoconf, patch
 , automake, libtool
 , cryptohash
 , haddock, hspec, xhtml, primitive, cacert, pkgs
 , coreutils
 , libiconv
+
+, ghcjsBootSrc ? fetchgit {
+    url = git://github.com/ghcjs/ghcjs-boot.git;
+    rev = "8c549931da27ba9e607f77195208ec156c840c8a";
+    sha256 = "0yg9bnabja39qysh9pg1335qbvbc0r2mdw6cky94p7kavacndfdv";
+    fetchSubmodules = true;
+  }
+, ghcjsBoot ? import ./ghcjs-boot.nix {
+    inherit runCommand;
+    src = ghcjsBootSrc;
+  }
+, shims ? import ./shims.nix { inherit fetchFromGitHub; }
 }:
 let
-  version = "0.1.0";
-  ghcjsBoot = fetchgit {
-    url = git://github.com/ghcjs/ghcjs-boot.git;
-    rev = "d435c60b62d24b7a4117493f7aaecbfa09968fe6"; # 7.10 branch
-    sha256 = "07vhmjz21ccnqccms003550xacmwb08pjdkhnjcwcbl2603v4na1";
-    fetchSubmodules = true;
-  };
-  shims = fetchgit {
-    url = git://github.com/ghcjs/shims.git;
-    rev = "0b670ca27fff3f0bad515c37e56ccb8b4d6758fb"; # master branch
-    sha256 = "19zq79f2y59lw7c8m100awh3rcra5yhbsvpb5xmp3mq6grac7h08";
-  };
+  inherit (bootPkgs) ghc;
+  version = "0.2.0";
+
 in mkDerivation (rec {
   pname = "ghcjs";
   inherit version;
-  src = fetchgit {
-    url = git://github.com/ghcjs/ghcjs.git;
-    rev = "39c1cb6d5d2551b306a7957a0e7f682f4a048490"; # master branch
-    sha256 = "1v2hpmhdssgf1jmchiwkvp5j8j6rw3k0hpkf326vb8l1b0kbmibr";
+  src = fetchFromGitHub {
+    owner = "ghcjs";
+    repo = "ghcjs";
+    rev = "689c7753f50353dd05606ed79c51cd5a94d3922a";
+    sha256 = "076020a9gjv8ldj5ckm43sbzq9s6c5xj6lpd8v28ybpiama3m6b4";
   };
   isLibrary = true;
   isExecutable = true;
@@ -108,18 +113,29 @@ in mkDerivation (rec {
       sed -i -e 's@ \(a\|b\)/boot/[^/]\+@ \1@g' $patch
     done
   '';
+  # We build with --quick so we can build stage 2 packages separately.
+  # This is necessary due to: https://github.com/haskell/cabal/commit/af19fb2c2d231d8deff1cb24164a2bf7efb8905a
+  # Cabal otherwise fails to build: http://hydra.nixos.org/build/31824079/nixlog/1/raw
   postInstall = ''
-    PATH=$out/bin:$PATH LD_LIBRARY_PATH=${gmp}/lib:${stdenv.cc}/lib64:$LD_LIBRARY_PATH \
+    PATH=$out/bin:$PATH LD_LIBRARY_PATH=${gmp.out}/lib:${stdenv.cc}/lib64:$LD_LIBRARY_PATH \
       env -u GHC_PACKAGE_PATH $out/bin/ghcjs-boot \
         --dev \
+        --quick \
         --with-cabal ${cabal-install}/bin/cabal \
-        --with-gmp-includes ${gmp}/include \
-        --with-gmp-libraries ${gmp}/lib
+        --with-gmp-includes ${gmp.dev}/include \
+        --with-gmp-libraries ${gmp.out}/lib
   '';
-  passthru = {
+  passthru = let
+    ghcjsNodePkgs = pkgs.nodePackages.override {
+      generated = ./node-packages-generated.nix;
+      self = ghcjsNodePkgs;
+    };
+  in {
+    inherit bootPkgs;
+    isCross = true;
     isGhcjs = true;
-    nativeGhc = ghc;
-    inherit nodejs;
+    inherit nodejs ghcjsBoot;
+    inherit (ghcjsNodePkgs) "socket.io";
   };
 
   homepage = "https://github.com/ghcjs/ghcjs";

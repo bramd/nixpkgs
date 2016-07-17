@@ -1,6 +1,7 @@
-{ stdenv, fetchurl, perl, zlib, apr, aprutil, pcre
+{ stdenv, fetchurl, perl, zlib, apr, aprutil, pcre, libiconv
 , proxySupport ? true
 , sslSupport ? true, openssl
+, http2Support ? true, nghttp2
 , ldapSupport ? true, openldap
 , libxml2Support ? true, libxml2
 , luaSupport ? false, lua5
@@ -12,28 +13,43 @@ in
 
 assert sslSupport -> aprutil.sslSupport && openssl != null;
 assert ldapSupport -> aprutil.ldapSupport && openldap != null;
+assert http2Support -> nghttp2 != null;
 
 stdenv.mkDerivation rec {
-  version = "2.4.16";
+  version = "2.4.20";
   name = "apache-httpd-${version}";
 
   src = fetchurl {
     url = "mirror://apache/httpd/httpd-${version}.tar.bz2";
-    sha256 = "0hrpy6gjwma0kba7p7m61vwh82qcnkf08123lrwpg257m93hnrmc";
+    sha1 = "cefe8ea4a3f81c7a08e36c80ebbd792c67ab361b";
   };
 
+  # FIXME: -dev depends on -doc
+  outputs = [ "dev" "out" "doc" ];
+  setOutputFlags = false; # it would move $out/modules, etc.
+
   buildInputs = [perl] ++
+    optional sslSupport openssl ++
     optional ldapSupport openldap ++    # there is no --with-ldap flag
-    optional libxml2Support libxml2;
+    optional libxml2Support libxml2 ++
+    optional http2Support nghttp2 ++
+    optional stdenv.isDarwin libiconv;
+
+  patchPhase = ''
+    sed -i config.layout -e "s|installbuilddir:.*|installbuilddir: $dev/share/build|"
+  '';
 
   # Required for ‘pthread_cancel’.
   NIX_LDFLAGS = stdenv.lib.optionalString (!stdenv.isDarwin) "-lgcc_s";
 
+  preConfigure = ''
+    configureFlags="$configureFlags --includedir=$dev/include"
+  '';
   configureFlags = ''
-    --with-apr=${apr}
-    --with-apr-util=${aprutil}
-    --with-z=${zlib}
-    --with-pcre=${pcre}
+    --with-apr=${apr.dev}
+    --with-apr-util=${aprutil.dev}
+    --with-z=${zlib.dev}
+    --with-pcre=${pcre.dev}
     --disable-maintainer-mode
     --disable-debugger-mode
     --enable-mods-shared=all
@@ -42,17 +58,21 @@ stdenv.mkDerivation rec {
     --enable-imagemap
     --enable-cgi
     ${optionalString proxySupport "--enable-proxy"}
-    ${optionalString sslSupport "--enable-ssl --with-ssl=${openssl}"}
+    ${optionalString sslSupport "--enable-ssl"}
+    ${optionalString http2Support "--enable-http2 --with-nghttp2"}
     ${optionalString luaSupport "--enable-lua --with-lua=${lua5}"}
-    ${optionalString libxml2Support "--with-libxml2=${libxml2}/include/libxml2"}
-  '';
-
-  postInstall = ''
-    echo "removing manual"
-    rm -rf $out/manual
+    ${optionalString libxml2Support "--with-libxml2=${libxml2.dev}/include/libxml2"}
+    --docdir=$(doc)/share/doc
   '';
 
   enableParallelBuilding = true;
+
+  postInstall = ''
+    mkdir -p $doc/share/doc/httpd
+    mv $out/manual $doc/share/doc/httpd
+    mkdir -p $dev/bin
+    mv $out/bin/apxs $dev/bin/apxs
+  '';
 
   passthru = {
     inherit apr aprutil sslSupport proxySupport ldapSupport;
@@ -63,6 +83,6 @@ stdenv.mkDerivation rec {
     homepage    = http://httpd.apache.org/;
     license     = licenses.asl20;
     platforms   = stdenv.lib.platforms.linux ++ stdenv.lib.platforms.darwin;
-    maintainers = with maintainers; [ lovek323 simons ];
+    maintainers = with maintainers; [ lovek323 peti ];
   };
 }

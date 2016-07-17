@@ -1,26 +1,20 @@
-{stdenv, fetchgit, automake, autoconf, zlib, pciutils}:
-let
-  version = "0.6.1";
-in
-stdenv.mkDerivation {
+{ stdenv, fetchgit, autoreconfHook, zlib, pciutils }:
+
+stdenv.mkDerivation rec {
   name = "biosdevname-${version}";
-  
+  version = "0.6.1";
+
   src = fetchgit {
     url = git://linux.dell.com/biosdevname.git;
     rev = "refs/tags/v${version}";
-    sha256 = "11g2pziss0i65mr4y3mwjlcdgpygaxa06lr4q8plmrwl9cick1qa";
+    sha256 = "059s3qyky9i497c9wnrjml15sknpsqbv01ww7q95bf9ybhdqqq8w";
   };
 
   buildInputs = [
-    automake
-    autoconf
+    autoreconfHook
     zlib
     pciutils
   ];
-
-  preConfigure = ''
-    autoreconf -i
-  '';
 
   # Don't install /lib/udev/rules.d/*-biosdevname.rules
   patches = [ ./makefile.patch ];

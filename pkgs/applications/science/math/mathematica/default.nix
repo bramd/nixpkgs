@@ -12,7 +12,7 @@
 , opencv
 , openssl
 , unixODBC
-, xlibs
+, xorg
 , zlib
 , libxml2
 , libuuid
@@ -56,7 +56,7 @@ stdenv.mkDerivation rec {
     unixODBC
     libxml2
     libuuid
-  ] ++ (with xlibs; [
+  ] ++ (with xorg; [
     libX11
     libXext
     libXtst
@@ -73,7 +73,7 @@ stdenv.mkDerivation rec {
 
   ldpath = stdenv.lib.makeLibraryPath buildInputs
     + stdenv.lib.optionalString (stdenv.system == "x86_64-linux")
-      (":" + stdenv.lib.makeSearchPath "lib64" buildInputs);
+      (":" + stdenv.lib.makeSearchPathOutput "lib" "lib64" buildInputs);
 
   phases = "unpackPhase installPhase fixupPhase";
 
@@ -96,7 +96,9 @@ stdenv.mkDerivation rec {
 
   preFixup = ''
     echo "=== PatchElfing away ==="
-    find $out/libexec/Mathematica/SystemFiles -type f -perm +100 | while read f; do
+    # This code should be a bit forgiving of errors, unfortunately
+    set +e
+    find $out/libexec/Mathematica/SystemFiles -type f -perm -0100 | while read f; do
       type=$(readelf -h "$f" 2>/dev/null | grep 'Type:' | sed -e 's/ *Type: *\([A-Z]*\) (.*/\1/')
       if [ -z "$type" ]; then
         :

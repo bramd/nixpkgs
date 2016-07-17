@@ -1,34 +1,37 @@
-{stdenv, fetchurl, curl, dmd, gcc, unzip }:
+{ stdenv, fetchFromGitHub, curl, dmd, gcc }:
 
-stdenv.mkDerivation {
-  name = "dub-0.9.23";
+stdenv.mkDerivation rec {
+  name = "dub-${version}";
+  version = "1.0.0";
 
-  src = fetchurl {
-    url = "https://github.com/D-Programming-Language/dub/archive/v0.9.23.tar.gz";
-    sha256 = "7ecbce89c0e48b43705d7c48003394f383556f33562c4b5d884a786cd85814d1";
+  src = fetchFromGitHub {
+    sha256 = "07s52hmh9jc3i4jfx4j4a91m44qrr933pwfwczzijhybj2wmpjhh";
+    rev = "v${version}";
+    repo = "dub";
+    owner = "D-Programming-Language";
   };
 
-  buildInputs = [ unzip curl ];
-
+  buildInputs = [ curl ];
   propagatedBuildInputs = [ gcc dmd ];
 
   buildPhase = ''
-      # Avoid that the version file is overwritten
-      substituteInPlace build.sh \
-          --replace source/dub/version_.d /dev/null
-      ./build.sh
+    # Avoid that the version file is overwritten
+    substituteInPlace build.sh \
+      --replace source/dub/version_.d /dev/null
+    patchShebangs ./build.sh
+    ./build.sh
   '';
 
   installPhase = ''
-      mkdir $out
-      mkdir $out/bin
-      cp bin/dub $out/bin
+    mkdir $out
+    mkdir $out/bin
+    cp bin/dub $out/bin
   '';
 
   meta = with stdenv.lib; {
     description = "Build tool for D projects";
     homepage = http://code.dlang.org/;
-    license = stdenv.lib.licenses.mit;
+    license = licenses.mit;
     platforms = platforms.unix;
   };
 }

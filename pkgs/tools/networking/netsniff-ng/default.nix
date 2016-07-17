@@ -2,16 +2,16 @@
 , libnetfilter_conntrack, libnl, libpcap, libsodium, liburcu, ncurses, perl
 , pkgconfig, zlib }:
 
-let version = "0.5.9-95-g186b116"; in
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
   name = "netsniff-ng-${version}";
+  version = "0.6.1";
 
   # Upstream recommends and supports git
   src = fetchFromGitHub rec {
     repo = "netsniff-ng";
     owner = repo;
-    rev = "186b116bec11cb941ed91547c9f612b96c96341b";
-    sha256 = "06l3565aj4qz4ag7w5pmkfa80mnf8bln2q80hqm4bq8g7sr9z63n";
+    rev = "v${version}";
+    sha256 = "0nl0xq7dwhryrd8i5iav8fj4x9jrna0afhfim5nrx2kwp5yylnvi";
   };
 
   buildInputs = [ bison flex geoip geolite-legacy libcli libnet libnl
@@ -22,13 +22,13 @@ stdenv.mkDerivation {
   configurePhase = ''
     patchShebangs configure
     substituteInPlace configure --replace "which" "command -v"
-    NACL_INC_DIR=${libsodium}/include/sodium NACL_LIB=sodium ./configure
+    NACL_INC_DIR=${libsodium.dev}/include/sodium NACL_LIB=sodium ./configure
   '';
 
   enableParallelBuilding = true;
 
   # All files installed to /etc are just static data that can go in the store
-  makeFlags = "PREFIX=$(out) ETCDIR=$(out)/etc";
+  makeFlags = [ "PREFIX=$(out)" "ETCDIR=$(out)/etc" ];
 
   postInstall = ''
     ln -sv ${geolite-legacy}/share/GeoIP/GeoIP.dat		$out/etc/netsniff-ng/country4.dat
@@ -41,7 +41,6 @@ stdenv.mkDerivation {
   '';
 
   meta = with stdenv.lib; {
-    inherit version;
     description = "Swiss army knife for daily Linux network plumbing";
     longDescription = ''
       netsniff-ng is a free Linux networking toolkit. Its gain of performance
@@ -52,7 +51,7 @@ stdenv.mkDerivation {
     '';
     homepage = http://netsniff-ng.org/;
     license = licenses.gpl2;
-    platforms = with platforms; linux;
+    platforms = platforms.linux;
     maintainers = with maintainers; [ nckx ];
   };
 }

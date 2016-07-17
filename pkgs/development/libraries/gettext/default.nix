@@ -1,32 +1,41 @@
-{ stdenv, fetchurl, libiconv, xz }:
+{ stdenv, lib, fetchurl, libiconv, xz }:
 
-stdenv.mkDerivation (rec {
-  name = "gettext-0.19.5.1";
+stdenv.mkDerivation rec {
+  name = "gettext-${version}";
+  version = "0.19.8";
 
   src = fetchurl {
     url = "mirror://gnu/gettext/${name}.tar.gz";
-    sha256 = "0cbp498ckjwj7qr8b9pmkry8hkhldgkvg5yix8hi9c8z1hxxb651";
+    sha256 = "13ylc6n3hsk919c7xl0yyibc3pfddzb53avdykn4hmk8g6yzd91x";
   };
+  patches = [ ./absolute-paths.diff ];
 
   outputs = [ "out" "doc" ];
 
   LDFLAGS = if stdenv.isSunOS then "-lm -lmd -lmp -luutil -lnvpair -lnsl -lidmap -lavl -lsec" else "";
 
   configureFlags = [ "--disable-csharp" "--with-xz" ]
-     ++ (stdenv.lib.optionals stdenv.isCygwin
-          [ "--disable-java"
+     ++ lib.optionals stdenv.isCygwin [
+            "--disable-java"
             "--disable-native-java"
             # Share the cache among the various `configure' runs.
             "--config-cache"
             "--with-included-gettext"
             "--with-included-glib"
             "--with-included-libcroco"
-          ])
+        ]
      # avoid retaining reference to CF during stdenv bootstrap
-     ++ (stdenv.lib.optionals stdenv.isDarwin [
-        "gt_cv_func_CFPreferencesCopyAppValue=no"
-        "gt_cv_func_CFLocaleCopyCurrent=no"
-      ]);
+     ++ lib.optionals stdenv.isDarwin [
+            "gt_cv_func_CFPreferencesCopyAppValue=no"
+            "gt_cv_func_CFLocaleCopyCurrent=no"
+        ];
+
+  postPatch = ''
+   substituteAllInPlace gettext-runtime/src/gettext.sh.in
+   substituteInPlace gettext-tools/projects/KDE/trigger --replace "/bin/pwd" pwd
+   substituteInPlace gettext-tools/projects/GNOME/trigger --replace "/bin/pwd" pwd
+   substituteInPlace gettext-tools/src/project-id --replace "/bin/pwd" pwd
+  '';
 
   # On cross building, gettext supposes that the wchar.h from libc
   # does not fulfill gettext needs, so it tries to work with its
@@ -37,20 +46,13 @@ stdenv.mkDerivation (rec {
       echo gl_cv_func_wcwidth_works=yes > cachefile
       configureFlags="$configureFlags --cache-file=`pwd`/cachefile"
     fi
-  '' + stdenv.lib.optionalString stdenv.isCygwin ''
+  '' + lib.optionalString stdenv.isCygwin ''
     sed -i -e "s/\(am_libgettextlib_la_OBJECTS = \)error.lo/\\1/" gettext-tools/gnulib-lib/Makefile.in
   '';
 
-  buildInputs = [ xz ] ++ stdenv.lib.optional (!stdenv.isLinux) libiconv;
+  nativeBuildInputs = [ xz xz.bin ] ++ stdenv.lib.optional (!stdenv.isLinux) libiconv; # HACK, see #10874 (and 14664)
 
   enableParallelBuilding = true;
-
-  crossAttrs = {
-    buildInputs = stdenv.lib.optional (stdenv ? ccCross && stdenv.ccCross.libc ? libiconv)
-      stdenv.ccCross.libc.libiconv.crossDrv;
-    # Gettext fails to guess the cross compiler
-    configureFlags = "CXX=${stdenv.cross.config}-g++";
-  };
 
   meta = {
     description = "Well integrated set of translation tools and documentation";
@@ -76,8 +78,8 @@ stdenv.mkDerivation (rec {
 
     homepage = http://www.gnu.org/software/gettext/;
 
-    maintainers = [ ];
-    platforms = stdenv.lib.platforms.all;
+    maintainers = with lib.maintainers; [ zimbatm vrthra ];
+    platforms = lib.platforms.all;
   };
 }
 
@@ -90,8 +92,8 @@ stdenv.mkDerivation (rec {
    # Make sure `error.c' gets compiled and is part of `libgettextlib.la'.
    # This fixes:
    # gettext-0.18.1.1/gettext-tools/src/msgcmp.c:371: undefined reference to `_error_message_count'
-
-   '' sed -i gettext-tools/gnulib-lib/Makefile.in \
+  '' 
+   sed -i gettext-tools/gnulib-lib/Makefile.in \
           -e 's/am_libgettextlib_la_OBJECTS =/am_libgettextlib_la_OBJECTS = error.lo/g'
    '';
-})
+}

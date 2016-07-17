@@ -1,26 +1,21 @@
-{ stdenv, fetchurl, cmake, qt4, pkgconfig, neon, qtkeychain, sqlite }:
+{ stdenv, fetchurl, cmake, qt4, pkgconfig, qtkeychain, sqlite }:
 
 stdenv.mkDerivation rec {
   name = "owncloud-client" + "-" + version;
 
-  version = "1.7.1";
+  version = "2.2.1";
 
   src = fetchurl {
-    url = "https://download.owncloud.com/desktop/stable/mirall-${version}.tar.bz2";
-    sha256 = "0n9gv97jqval7xjyix2lkywvmvvfv052s0bd1i8kybdl9rwca6yf";
+    url = "https://download.owncloud.com/desktop/stable/owncloudclient-${version}.tar.xz";
+    sha256 = "1wis62jk4y4mbr25y39y6af57pi6vp2mbryazmvn6zgnygf69m3h";
   };
 
   buildInputs =
-    [ cmake qt4 pkgconfig neon qtkeychain sqlite];
+    [ cmake qt4 pkgconfig qtkeychain sqlite];
 
-  #configurePhase = ''
-  #  mkdir build
-  #  cd build
-  #  cmake -DBUILD_WITH_QT4=on \
-  #        -DCMAKE_INSTALL_PREFIX=$out \
-  #        -DCMAKE_BUILD_TYPE=Release \
-  #        ..
-  #'';
+  cmakeFlags = [
+  "-UCMAKE_INSTALL_LIBDIR"
+  ];
 
   enableParallelBuilding = true;
 

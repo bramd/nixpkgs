@@ -4,22 +4,7 @@
 }:
 
 stdenv.mkDerivation {
-  name = "appstream-0.8.0";
-
-  meta = with stdenv.lib; {
-    description = "Software metadata handling library";
-    homepage    = "http://www.freedesktop.org/wiki/Distributions/AppStream/Software/";
-    longDescription =
-    ''
-      AppStream is a cross-distro effort for building Software-Center applications
-      and enhancing metadata provided by software components.  It provides
-      specifications for meta-information which is shipped by upstream projects and
-      can be consumed by other software.
-    '';
-    license     = licenses.lgpl21Plus;
-    platforms   = platforms.linux;
-    maintainers = with maintainers; [ iyzsong ];
- };
+  name = "appstream-0.9.5";
 
   src = fetchurl {
     url = "https://github.com/ximion/appstream/archive/APPSTREAM_0_8_0.tar.gz";
@@ -33,4 +18,18 @@ stdenv.mkDerivation {
   ];
 
   buildInputs = [ glib xapian libxml2 libyaml ];
+
+  meta = with stdenv.lib; {
+    description = "Software metadata handling library";
+    homepage    = "http://www.freedesktop.org/wiki/Distributions/AppStream/Software/";
+    longDescription =
+    ''
+      AppStream is a cross-distro effort for building Software-Center applications
+      and enhancing metadata provided by software components.  It provides
+      specifications for meta-information which is shipped by upstream projects and
+      can be consumed by other software.
+    '';
+    license     = licenses.lgpl21Plus;
+    platforms   = platforms.linux;
+ };
 }

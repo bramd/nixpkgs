@@ -7,11 +7,11 @@ assert enableMagnet -> lua5_1 != null;
 assert enableMysql -> mysql != null;
 
 stdenv.mkDerivation rec {
-  name = "lighttpd-1.4.35";
+  name = "lighttpd-1.4.39";
 
   src = fetchurl {
     url = "http://download.lighttpd.net/lighttpd/releases-1.4.x/${name}.tar.xz";
-    sha256 = "18rh7xyx69xbwl20znnjma1dq5fay0ygjjvpn3gaa7dxrir9nghi";
+    sha256 = "0nrnhxl1ypzgsms0ky6zdf6ib94vf8x77c422s2xav9x7j2s3fby";
   };
 
   buildInputs = [ pkgconfig pcre libxml2 zlib attr bzip2 which file openssl ]

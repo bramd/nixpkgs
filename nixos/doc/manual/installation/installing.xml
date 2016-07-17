@@ -18,11 +18,14 @@
   <listitem><para>The NixOS manual is available on virtual console 8
   (press Alt+F8 to access).</para></listitem>
 
-  <listitem><para>Login as <literal>root</literal> and the empty
-  password.</para></listitem>
+  <listitem><para>You get logged in as <literal>root</literal>
+  (with empty password).</para></listitem>
 
   <listitem><para>If you downloaded the graphical ISO image, you can
-  run <command>start display-manager</command> to start KDE.</para></listitem>
+  run <command>systemctl start display-manager</command> to start KDE. If you
+  want to continue on the terminal, you can use
+  <command>loadkeys</command> to switch to your preferred keyboard layout.
+  (We even provide neo2 via <command>loadkeys de neo</command>!)</para></listitem>
 
   <listitem><para>The boot process should have brought up networking (check
   <command>ip a</command>).  Networking is necessary for the
@@ -35,7 +38,7 @@
   <command>systemctl stop network-manager</command>.</para></listitem>
 
   <listitem><para>The NixOS installer doesn’t do any partitioning or
-  formatting yet, so you need to that yourself.  Use the following
+  formatting yet, so you need to do that yourself.  Use the following
   commands:
 
   <itemizedlist>
@@ -51,7 +54,7 @@
     changes.  For example:
 
 <screen>
-$ mkfs.ext4 -L nixos /dev/sda1</screen>
+# mkfs.ext4 -L nixos /dev/sda1</screen>
 
     </para></listitem>
 
@@ -63,10 +66,10 @@ $ mkfs.ext4 -L nixos /dev/sda1</screen>
     <listitem><para>For creating LVM volumes, the LVM commands, e.g.,
 
 <screen>
-$ pvcreate /dev/sda1 /dev/sdb1
-$ vgcreate MyVolGroup /dev/sda1 /dev/sdb1
-$ lvcreate --size 2G --name bigdisk MyVolGroup
-$ lvcreate --size 1G --name smalldisk MyVolGroup</screen>
+# pvcreate /dev/sda1 /dev/sdb1
+# vgcreate MyVolGroup /dev/sda1 /dev/sdb1
+# lvcreate --size 2G --name bigdisk MyVolGroup
+# lvcreate --size 1G --name smalldisk MyVolGroup</screen>
 
     </para></listitem>
 
@@ -81,7 +84,7 @@ $ lvcreate --size 1G --name smalldisk MyVolGroup</screen>
   be installed on <filename>/mnt</filename>, e.g.
 
 <screen>
-$ mount /dev/disk/by-label/nixos /mnt
+# mount /dev/disk/by-label/nixos /mnt
 </screen>
 
   </para></listitem>
@@ -110,14 +113,14 @@ $ mount /dev/disk/by-label/nixos /mnt
     generate an initial configuration file for you:
 
 <screen>
-$ nixos-generate-config --root /mnt</screen>
+# nixos-generate-config --root /mnt</screen>
 
     You should then edit
     <filename>/mnt/etc/nixos/configuration.nix</filename> to suit your
     needs:
 
 <screen>
-$ nano /mnt/etc/nixos/configuration.nix
+# nano /mnt/etc/nixos/configuration.nix
 </screen>
 
     If you’re using the graphical ISO image, other editors may be
@@ -154,16 +157,12 @@ $ nano /mnt/etc/nixos/configuration.nix
     <command>nixos-generate-config</command> will figure out the
     required modules.</para></note>
 
-    <para>Examples of real-world NixOS configuration files can be
-    found at <link
-    xlink:href="https://nixos.org/repos/nix/configurations/trunk/"/>.</para>
-
   </listitem>
 
   <listitem><para>Do the installation:
 
 <screen>
-$ nixos-install</screen>
+# nixos-install</screen>
 
     Cross fingers.  If this fails due to a temporary problem (such as
     a network issue while downloading binaries from the NixOS binary
@@ -187,7 +186,7 @@ Retype new UNIX password: ***
   <listitem><para>If everything went well:
 
 <screen>
-$ reboot</screen>
+# reboot</screen>
 
   </para></listitem>
 
@@ -236,15 +235,15 @@ drive (here <filename>/dev/sda</filename>).  <xref linkend="ex-config"
 
 <example xml:id='ex-install-sequence'><title>Commands for Installing NixOS on <filename>/dev/sda</filename></title>
 <screen>
-$ fdisk /dev/sda # <lineannotation>(or whatever device you want to install on)</lineannotation>
-$ mkfs.ext4 -L nixos /dev/sda1
-$ mkswap -L swap /dev/sda2
-$ swapon /dev/sda2
-$ mount /dev/disk/by-label/nixos /mnt
-$ nixos-generate-config --root /mnt
-$ nano /mnt/etc/nixos/configuration.nix
-$ nixos-install
-$ reboot</screen>
+# fdisk /dev/sda # <lineannotation>(or whatever device you want to install on)</lineannotation>
+# mkfs.ext4 -L nixos /dev/sda1
+# mkswap -L swap /dev/sda2
+# swapon /dev/sda2
+# mount /dev/disk/by-label/nixos /mnt
+# nixos-generate-config --root /mnt
+# nano /mnt/etc/nixos/configuration.nix
+# nixos-install
+# reboot</screen>
 </example>
 
 <example xml:id='ex-config'><title>NixOS Configuration</title>
@@ -271,5 +270,6 @@ $ reboot</screen>
 
 <xi:include href="installing-uefi.xml" />
 <xi:include href="installing-usb.xml" />
+<xi:include href="installing-pxe.xml" />
 
 </chapter>

@@ -1,7 +1,7 @@
-{ stdenv, lib, fetchurl, fetchpatch, SDL, boost, cmake, ffmpeg, gettext, glew
+{ stdenv, lib, fetchurl, SDL, boost, cmake, ffmpeg, gettext, glew
 , ilmbase, libXi, libjpeg, libpng, libsamplerate, libsndfile
 , libtiff, mesa, openal, opencolorio, openexr, openimageio, openjpeg, python
-, zlib, fftw
+, zlib, fftw, opensubdiv
 , jackaudioSupport ? false, libjack2
 , cudaSupport ? false, cudatoolkit
 , colladaSupport ? true, opencollada
@@ -10,17 +10,18 @@
 with lib;
 
 stdenv.mkDerivation rec {
-  name = "blender-2.75a";
+  name = "blender-2.77a";
 
   src = fetchurl {
     url = "http://download.blender.org/source/${name}.tar.gz";
-    sha256 = "09lxb2li70p6fg7hbakin9ffy3b3101c1gdjqi3pykks5q3h9sq4";
+    sha256 = "0rswx2n52wjr4jpvg1a6mir5das2i752brjzigmm8rhayl0glw1p";
   };
 
   buildInputs =
     [ SDL boost cmake ffmpeg gettext glew ilmbase libXi
       libjpeg libpng libsamplerate libsndfile libtiff mesa openal
       opencolorio openexr openimageio /* openjpeg */ python zlib fftw
+      (opensubdiv.override { inherit cudaSupport; })
     ]
     ++ optional jackaudioSupport libjack2
     ++ optional cudaSupport cudatoolkit
@@ -41,6 +42,7 @@ stdenv.mkDerivation rec {
       "-DWITH_GAMEENGINE=ON"
       "-DWITH_OPENCOLORIO=ON"
       "-DWITH_PLAYER=ON"
+      "-DWITH_OPENSUBDIV=ON"
       "-DPYTHON_LIBRARY=python${python.majorVersion}m"
       "-DPYTHON_LIBPATH=${python}/lib"
       "-DPYTHON_INCLUDE_DIR=${python}/include/python${python.majorVersion}m"
@@ -60,7 +62,7 @@ stdenv.mkDerivation rec {
     # They comment two licenses: GPLv2 and Blender License, but they
     # say: "We've decided to cancel the BL offering for an indefinite period."
     license = licenses.gpl2Plus;
-    platforms = platforms.linux;
+    platforms = [ "x86_64-linux" ];
     maintainers = [ maintainers.goibhniu ];
   };
 }

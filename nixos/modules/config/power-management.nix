@@ -71,7 +71,6 @@ in
 
     # FIXME: Implement powersave governor for sandy bridge or later Intel CPUs
     powerManagement.cpuFreqGovernor = mkDefault "ondemand";
-    powerManagement.scsiLinkPolicy = mkDefault "min_power";
 
     systemd.targets.post-resume = {
       description = "Post-Resume Actions";
@@ -98,6 +97,7 @@ in
         after = [ "suspend.target" "hibernate.target" "hybrid-sleep.target" ];
         script =
           ''
+            ${config.systemd.package}/bin/systemctl try-restart post-resume.target
             ${cfg.resumeCommands}
             ${cfg.powerUpCommands}
           '';

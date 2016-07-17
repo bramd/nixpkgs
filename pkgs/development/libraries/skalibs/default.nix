@@ -2,7 +2,7 @@
 
 let
 
-  version = "2.3.4.0";
+  version = "2.3.9.0";
 
 in stdenv.mkDerivation rec {
 
@@ -11,7 +11,7 @@ in stdenv.mkDerivation rec {
   src = fetchgit {
     url = "git://git.skarnet.org/skalibs";
     rev = "refs/tags/v${version}";
-    sha256 = "03kqcinb5sn1pk297nqg7w5hzgmkkhhcs3l9x99w1x9kgmw6wisp";
+    sha256 = "1x52mgf39yiijsj63x0ibp6d3nj0d4z9k9lisa4rzsxs7846za4a";
   };
 
   dontDisableStatic = true;
@@ -23,7 +23,14 @@ in stdenv.mkDerivation rec {
     "--libdir=\${prefix}/lib"
     "--includedir=\${prefix}/include"
     "--sysdepdir=\${prefix}/lib/skalibs/sysdeps"
-  ] ++ (if stdenv.isDarwin then [ "--disable-shared" ] else [ "--enable-shared" ]);
+  ]
+  ++ (if stdenv.isDarwin then [ "--disable-shared" ] else [ "--enable-shared" ])
+  # On darwin, the target triplet from -dumpmachine includes version number, but
+  # skarnet.org software uses the triplet to test binary compatibility.
+  # Explicitly setting target ensures code can be compiled against a skalibs
+  # binary built on a different version of darwin.
+  # http://www.skarnet.org/cgi-bin/archive.cgi?1:mss:623:heiodchokfjdkonfhdph
+  ++ (stdenv.lib.optional stdenv.isDarwin "--target=${stdenv.system}");
 
   meta = {
     homepage = http://skarnet.org/software/skalibs/;

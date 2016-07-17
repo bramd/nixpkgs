@@ -1,21 +1,25 @@
-{stdenv, fetchgit, rustUnstable, makeWrapper }:
+{ stdenv, fetchFromGitHub, rustPlatform, makeWrapper }:
 
-with rustUnstable;
+with rustPlatform;
 
 buildRustPackage rec {
-  name = "rustfmt-git-2015-09-05";
-  src = fetchgit {
-    url = https://github.com/nrc/rustfmt;
-    rev = "6c5d3500bb805b37865fe961a7054f8435d176fc";
-    sha256 = "0y506viir1klzvspi49qawrfd2g12p9ff2fyy1ndba6zixf69a90";
+  name = "rustfmt-${version}";
+  version = "0.4";
+
+  src = fetchFromGitHub {
+    owner = "rust-lang-nursery";
+    repo = "rustfmt";
+    rev = "19768da5c97c108a05e6f545b73ba4b76d1b1788";
+    sha256 = "0f2m0gvlqlybcjl2xqwxlp5hjkhd30kx25dq56k5x0r3808ijksg";
   };
 
-  depsSha256 = "1kfc9l176qkimaag9p650sfpaz50p263rw2021gq5kjw8cyndlx8";
+  depsSha256 = "1lbcpvp7xhyl96w7jfd18w6py60nwllr93jna5j33zvnip61cpf5";
 
   meta = with stdenv.lib; {
     description = "A tool for formatting Rust code according to style guidelines";
     homepage = https://github.com/nrc/rustfmt;
     license = with licenses; [ mit asl20 ];
     maintainers = [ maintainers.globin ];
+    platforms = platforms.all;
   };
 }

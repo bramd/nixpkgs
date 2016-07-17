@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, xz, bzip2, perl, xlibs, libdvdnav, libbluray
+{ stdenv, fetchurl, xz, bzip2, perl, xorg, libdvdnav, libbluray
 , zlib, a52dec, libmad, faad2, ffmpeg, alsaLib
 , pkgconfig, dbus, fribidi, freefont_ttf, libebml, libmatroska
 , libvorbis, libtheora, speex, lua5, libgcrypt, libupnp
@@ -6,25 +6,31 @@
 , mpeg2dec, udev, gnutls, avahi, libcddb, libjack2, SDL, SDL_image
 , libmtp, unzip, taglib, libkate, libtiger, libv4l, samba, liboggz
 , libass, libva, libdvbpsi, libdc1394, libraw1394, libopus
-, libvdpau
+, libvdpau, libsamplerate, live555, fluidsynth
 , onlyLibVLC ? false
-, qt4 ? null, qt5 ? null, withQt5 ? false
+, qt4 ? null
+, withQt5 ? false, qtbase ? null, qtx11extras ? null
 , jackSupport ? false
 }:
 
 with stdenv.lib;
 
-assert (withQt5 -> qt5 != null);
+assert (withQt5 -> qtbase != null && qtx11extras != null);
 assert (!withQt5 -> qt4 != null);
 
 stdenv.mkDerivation rec {
   name = "vlc-${version}";
-  version = "2.2.1";
+  version = "2.2.4";
 
   src = fetchurl {
-    url = "http://download.videolan.org/vlc/${version}/${name}.tar.xz";
-    sha256 = "1jqzrzrpw6932lbkf863xk8cfmn4z2ngbxz7w8ggmh4f6xz9sgal";
+    url = "http://get.videolan.org/vlc/${version}/${name}.tar.xz";
+    sha256 = "1gjkrwlg8ab3skzl67cxb9qzg4187ifckd1z9kpy11q058fyjchn";
   };
+
+  # Comment-out the Qt 5.5 version check, as we do apply the relevant patch.
+  # https://trac.videolan.org/vlc/ticket/16497
+  postPatch = if (!withQt5) then null else
+    "sed '/I78ef29975181ee22429c9bd4b11d96d9e68b7a9c/s/^/: #/' -i configure";
 
   buildInputs =
     [ xz bzip2 perl zlib a52dec libmad faad2 ffmpeg alsaLib libdvdnav libdvdnav.libdvdread
@@ -32,13 +38,17 @@ stdenv.mkDerivation rec {
       libupnp libcaca libpulseaudio flac schroedinger libxml2 librsvg mpeg2dec
       udev gnutls avahi libcddb SDL SDL_image libmtp unzip taglib
       libkate libtiger libv4l samba liboggz libass libdvbpsi libva
-      xlibs.xlibs xlibs.libXv xlibs.libXvMC xlibs.libXpm xlibs.xcbutilkeysyms
-      libdc1394 libraw1394 libopus libebml libmatroska libvdpau
+      xorg.xlibsWrapper xorg.libXv xorg.libXvMC xorg.libXpm xorg.xcbutilkeysyms
+      libdc1394 libraw1394 libopus libebml libmatroska libvdpau libsamplerate live555
+      fluidsynth
     ]
-    ++ (if withQt5 then with qt5; [ base ] else [qt4])
+    ++ [(if withQt5 then qtbase else qt4)]
+    ++ optional withQt5 qtx11extras
     ++ optional jackSupport libjack2;
 
   nativeBuildInputs = [ pkgconfig ];
+
+  LIVE555_PREFIX = live555;
 
   configureFlags =
     [ "--enable-alsa"
@@ -47,6 +57,7 @@ stdenv.mkDerivation rec {
       "--enable-ncurses"
       "--enable-vdpau"
       "--enable-dvdnav"
+      "--enable-samplerate"
     ]
     ++ optional onlyLibVLC  "--disable-vlc";
 

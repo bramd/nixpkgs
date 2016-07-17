@@ -1,9 +1,9 @@
 { stdenv, fetchFromGitHub, which, sqlite, lua5_1, perl, zlib, pkgconfig, ncurses
 , dejavu_fonts, libpng, SDL2, SDL2_image, mesa, freetype
-, tileMode ? true
+, tileMode ? false
 }:
 
-let version = "0.16.1";
+let version = "0.18.0";
 in
 stdenv.mkDerivation rec {
   name = "crawl-${version}" + (if tileMode then "-tiles" else "");
@@ -11,7 +11,7 @@ stdenv.mkDerivation rec {
     owner = "crawl-ref";
     repo = "crawl-ref";
     rev = version;
-    sha256 = "0gciqaij05qr5bwkk5mblvk5k0p6bzjd58czk1b6x5xx5qcp6mmh";
+    sha256 = "0mgg9lzy7lp5bhp8340a6c6qyz7yiz80wb39gknls8hvv0f6i0si";
   };
 
   patches = [ ./crawl_purify.patch ];
@@ -26,8 +26,6 @@ stdenv.mkDerivation rec {
   preBuild = ''
     cd crawl-ref/source
     echo "${version}" > util/release_ver
-    # Related to issue #1963
-    sed -i 's/-fuse-ld=gold//g' Makefile
     for i in util/*; do
       patchShebangs $i
     done
@@ -35,7 +33,7 @@ stdenv.mkDerivation rec {
   '';
 
   makeFlags = [ "prefix=$(out)" "FORCE_CC=gcc" "FORCE_CXX=g++" "HOSTCXX=g++"
-                "SAVEDIR=~/.crawl" "sqlite=${sqlite}" ]
+                "SAVEDIR=~/.crawl" "sqlite=${sqlite.dev}" ]
            ++ stdenv.lib.optionals tileMode [ "TILES=y" "dejavu_fonts=${dejavu_fonts}" ];
 
   postInstall = if tileMode then "mv $out/bin/crawl $out/bin/crawl-tiles" else "";

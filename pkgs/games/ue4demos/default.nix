@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, unzip, patchelf, xlibs, openal }:
+{ stdenv, fetchurl, unzip, patchelf, xorg, openal }:
 
 assert stdenv.isLinux;
 assert stdenv.isx86_64;
@@ -11,8 +11,8 @@ let
       buildInputs = [ unzip patchelf ];
 
       rtdeps = stdenv.lib.makeLibraryPath
-        [ xlibs.libXxf86vm xlibs.libXext openal ]
-        + ":" + stdenv.lib.makeSearchPath "lib64" [ stdenv.cc.cc ];
+        [ xorg.libXxf86vm xorg.libXext openal ]
+        + ":" + stdenv.lib.makeSearchPathOutput "lib" "lib64" [ stdenv.cc.cc ];
 
       buildCommand =
       ''
@@ -20,7 +20,7 @@ let
         cd $out
         unzip $src
 
-        interpreter=$(echo ${stdenv.glibc}/lib/ld-linux*.so.2)
+        interpreter=$(echo ${stdenv.glibc.out}/lib/ld-linux*.so.2)
         binary=$(find . -executable -type f)
         patchelf \
           --set-interpreter $interpreter \

@@ -2,13 +2,13 @@
 
 stdenv.mkDerivation rec
 {
-  version = "4.0.6";
+  version = "5.0.7";
   name = "seafile-shared-${version}";
 
   src = fetchurl
   {
     url = "https://github.com/haiwen/seafile/archive/v${version}.tar.gz";
-    sha256 = "1vs1ckxkh0kg1wjklpwdz87d5z60r80q27xv1s6yl7ir65s6zq0i";
+    sha256 = "ec166c86a41e7ab3b1ae97a56326ab4a2b1ec38686486b956c3d153b8023c670";
   };
 
   buildInputs = [ which automake autoconf pkgconfig libtool vala python intltool fuse ];

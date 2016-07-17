@@ -26,9 +26,7 @@ in
   boot.loader.generic-extlinux-compatible.enable = true;
 
   boot.kernelPackages = pkgs.linuxPackages_rpi;
-
-  # FIXME: fix manual evaluation on ARM
-  services.nixosManual.enable = lib.mkOverride 0 false;
+  boot.consoleLogLevel = 7;
 
   # FIXME: this probably should be in installation-device.nix
   users.extraUsers.root.initialHashedPassword = "";

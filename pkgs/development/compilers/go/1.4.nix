@@ -9,11 +9,11 @@ in
 
 stdenv.mkDerivation rec {
   name = "go-${version}";
-  version = "1.4.2";
+  version = "1.4.3";
 
   src = fetchurl {
     url = "https://github.com/golang/go/archive/go${version}.tar.gz";
-    sha256 = "3e5d07bc5214a1ffe187cf6406c5b5a80ee44f12f6bca97a5463db0afee2f6ac";
+    sha256 = "0rcrhb3r997dw3d02r37zp26ln4q9n77fqxbnvw04zs413md5s35";
   };
 
   nativeBuildInputs = [ pkgconfig ];
@@ -46,6 +46,8 @@ stdenv.mkDerivation rec {
     sed -i 's,/bin/pwd,'"`type -P pwd`", src/os/os_test.go
     # Disable the unix socket test
     sed -i '/TestShutdownUnix/areturn' src/net/net_test.go
+    # Disable network timeout test
+    sed -i '/TestDialTimeout/areturn' src/net/dial_test.go
     # Disable the hostname test
     sed -i '/TestHostname/areturn' src/os/os_test.go
     # ParseInLocation fails the test
@@ -56,28 +58,36 @@ stdenv.mkDerivation rec {
     sed -i 's,/usr/share/zoneinfo/,${tzdata}/share/zoneinfo/,' src/time/zoneinfo_unix.go
 
     # Find the loader dynamically
-    LOADER="$(find ${libc}/lib -name ld-linux\* | head -n 1)"
+    LOADER="$(find ${lib.getLib libc}/lib -name ld-linux\* | head -n 1)"
 
     # Replace references to the loader
     find src/cmd -name asm.c -exec sed -i "s,/lib/ld-linux.*\.so\.[0-9],$LOADER," {} \;
   '' + lib.optionalString stdenv.isDarwin ''
     sed -i 's,"/etc","'"$TMPDIR"'",' src/os/os_test.go
     sed -i 's,/_go_os_test,'"$TMPDIR"'/_go_os_test,' src/os/path_test.go
+    sed -i '/TestCgoLookupIP/areturn' src/net/cgo_unix_test.go
+    sed -i '/TestChdirAndGetwd/areturn' src/os/os_test.go
+    sed -i '/TestDialDualStackLocalhost/areturn' src/net/dial_test.go
     sed -i '/TestRead0/areturn' src/os/os_test.go
     sed -i '/TestSystemRoots/areturn' src/crypto/x509/root_darwin_test.go
-    sed -i '/TestDialDualStackLocalhost/areturn' src/net/dial_test.go
+
+    # fails when running inside tmux
+    sed -i '/TestNohup/areturn' src/os/signal/signal_test.go
+
 
     # remove IP resolving tests, on darwin they can find fe80::1%lo while expecting ::1
     sed -i '/TestResolveIPAddr/areturn' src/net/ipraw_test.go
     sed -i '/TestResolveTCPAddr/areturn' src/net/tcp_test.go
     sed -i '/TestResolveUDPAddr/areturn' src/net/udp_test.go
 
+    sed -i '/TestCgoExternalThreadSIGPROF/areturn' src/runtime/crash_cgo_test.go
+
     touch $TMPDIR/group $TMPDIR/hosts $TMPDIR/passwd
   '';
 
   patches = [
-    ./cacert-1.4.patch
     ./remove-tools-1.4.patch
+    ./new-binutils.patch
   ];
 
   GOOS = if stdenv.isDarwin then "darwin" else "linux";

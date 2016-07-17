@@ -1,10 +1,17 @@
-{ callPackage, fetchurl, ... } @ args:
+{ callPackage, fetchurl, autoreconfHook, ... } @ args:
 
 callPackage ./generic.nix (args // rec {
-  version = "3.4.4";
+  version = "3.4.13";
 
   src = fetchurl {
-    url = "ftp://ftp.gnutls.org/gcrypt/gnutls/v3.4/gnutls-${version}.tar.lz";
-    sha256 = "17xazr0fdhlkr13bwiy52xq6z6mssml7q1ydyj8s1hwh68703c75";
+    url = "ftp://ftp.gnutls.org/gcrypt/gnutls/v3.4/gnutls-${version}.tar.xz";
+    sha256 = "0naqs9g5b577j1j7q55ma1vcn78jl2d98h3zrl5rh997wzl8cczx";
   };
+
+  # This fixes some broken parallel dependencies
+  postPatch = ''
+    sed -i 's,^BUILT_SOURCES =,\0 systemkey-args.h,g' src/Makefile.am
+  '';
+
+  nativeBuildInputs = [ autoreconfHook ];
 })

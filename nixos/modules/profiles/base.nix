@@ -1,7 +1,7 @@
 # This module defines the software packages included in the "minimal"
 # installation CD.  It might be useful elsewhere.
 
-{ config, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 {
   # Include some utilities that are useful for installing or repairing
@@ -35,7 +35,7 @@
     # Tools to create / manipulate filesystems.
     pkgs.ntfsprogs # for resizing NTFS partitions
     pkgs.dosfstools
-    pkgs.xfsprogs
+    pkgs.xfsprogs.bin
     pkgs.jfsutils
     pkgs.f2fs-tools
 
@@ -47,8 +47,8 @@
   ];
 
   # Include support for various filesystems.
-  boot.supportedFilesystems = [ "btrfs" "reiserfs" "vfat" "f2fs" "zfs" "ntfs" "cifs" ];
+  boot.supportedFilesystems = [ "btrfs" "reiserfs" "vfat" "f2fs" "xfs" "zfs" "ntfs" "cifs" ];
 
   # Configure host id for ZFS to work
-  networking.hostId = "8425e349";
+  networking.hostId = lib.mkDefault "8425e349";
 }

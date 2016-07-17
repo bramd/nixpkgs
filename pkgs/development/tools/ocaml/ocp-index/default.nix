@@ -2,7 +2,7 @@
 
 let inherit (stdenv.lib) getVersion versionAtLeast optional; in
 
-assert versionAtLeast (getVersion ocaml) "3.12.1";
+assert versionAtLeast (getVersion ocaml) "4";
 assert versionAtLeast (getVersion ocpBuild) "1.99.6-beta";
 assert versionAtLeast (getVersion ocpIndent) "1.4.2";
 
@@ -38,7 +38,7 @@ stdenv.mkDerivation {
     homepage = http://typerex.ocamlpro.com/ocp-index.html;
     description = "A simple and light-weight documentation extractor for OCaml";
     license = stdenv.lib.licenses.lgpl3;
-    platforms = ocaml.meta.platforms;
+    platforms = ocaml.meta.platforms or [];
     maintainers = with stdenv.lib.maintainers; [ vbgl ];
   };
 }

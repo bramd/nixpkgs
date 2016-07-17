@@ -1,12 +1,12 @@
 { stdenv, fetchgit, makeWrapper, openresolv, coreutils }:
 
 stdenv.mkDerivation rec {
-  name = "update-resolv-conf-2014-10-03";
+  name = "update-resolv-conf-20141003";
 
   src = fetchgit {
     url = https://github.com/masterkorp/openvpn-update-resolv-conf/;
     rev = "dd968419373bce71b22bbd26de962e89eb470670";
-    sha256 = "dd0e3ea3661253d565bda876eb52a3f8461a3fc8237a81c40809c2071f83add1";
+    sha256 = "0j7mg66lqhgvhybgbn98y7i5skj1ify41hmb0yhkx2xrli8027b9";
   };
 
   nativeBuildInputs = [ makeWrapper ];

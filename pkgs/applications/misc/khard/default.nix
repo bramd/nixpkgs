@@ -1,23 +1,21 @@
-{ stdenv, fetchurl, pkgs, pythonPackages }:
+{ stdenv, fetchurl, pkgs, python2Packages }:
 
-pythonPackages.buildPythonPackage rec {
-  version = "0.4.1";
+python2Packages.buildPythonApplication rec {
+  version = "0.9.0";
   name = "khard-${version}";
   namePrefix = "";
 
   src = fetchurl {
     url = "https://github.com/scheibler/khard/archive/v${version}.tar.gz";
-    sha256 = "09yibjzly711hwpg345n653rz47llvrj4shnlcxd8snzvg8m5gri";
+    sha256 = "1cj6rlvbk05cfjkl1lnyvq12sb847jjwqy5j8906p2b2x4wq72qi";
   };
 
-  propagatedBuildInputs = with pythonPackages; [
+  propagatedBuildInputs = with python2Packages; [
+    atomicwrites
     configobj
     vobject
     argparse
-  ];
-
-  buildInputs = with pythonPackages; [
-    pkgs.vdirsyncer
+    pyyaml
   ];
 
   meta = {

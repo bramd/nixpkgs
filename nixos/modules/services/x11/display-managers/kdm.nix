@@ -19,7 +19,7 @@ let
       ''}
 
       [X-*-Core]
-      Xrdb=${pkgs.xlibs.xrdb}/bin/xrdb
+      Xrdb=${pkgs.xorg.xrdb}/bin/xrdb
       SessionsDirs=${dmcfg.session.desktops}
       Session=${dmcfg.session.script}
       FailsafeClient=${pkgs.xterm}/bin/xterm
@@ -57,6 +57,7 @@ let
   kdmrc = pkgs.stdenv.mkDerivation {
     name = "kdmrc";
     config = defaultConfig + cfg.extraConfig;
+    preferLocalBuild = true;
     buildCommand =
       ''
         echo "$config" > $out
@@ -138,7 +139,7 @@ in
             mkdir -m 0755 -p /var/lib/kdm
             chown kdm /var/lib/kdm
             ${(optionalString (config.system.boot.loader.id == "grub" && config.system.build.grub != null) "PATH=${config.system.build.grub}/sbin:$PATH ") +
-              "KDEDIRS=/run/current-system/sw exec ${kdebase_workspace}/bin/kdm -config ${kdmrc} -nodaemon"}
+              "KDEDIRS=/run/current-system/sw exec ${kdebase_workspace}/bin/kdm -config ${kdmrc} -nodaemon -logfile /dev/stderr"}
           '';
         logsXsession = true;
       };

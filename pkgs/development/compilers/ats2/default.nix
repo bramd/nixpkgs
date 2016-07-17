@@ -2,22 +2,22 @@
 
 stdenv.mkDerivation rec {
   name    = "ats2-${version}";
-  version = "0.1.12";
+  version = "0.2.7";
 
   src = fetchurl {
     url = "mirror://sourceforge/ats2-lang/ATS2-Postiats-${version}.tgz";
-    sha256 = "1jiki88mzhki74xh5ffw3pali5zs74pa0nylcb8n4ypfvdpqvlhb";
+    sha256 = "1w9cncahv0vkqsj4vlfnn7bn61jvgxgjhk7wbppcm3yhb48pkmda";
   };
 
   buildInputs = [ gmp ];
 
   setupHook = ./setup-hook.sh;
 
-  meta = {
+  meta = with stdenv.lib; {
     description = "Functional programming language with dependent types";
     homepage    = "http://www.ats-lang.org";
-    license     = stdenv.lib.licenses.gpl3Plus;
-    platforms   = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.thoughtpolice ];
+    license     = licenses.gpl3Plus;
+    platforms   = platforms.linux;
+    maintainers = with maintainers; [ thoughtpolice ttuegel ];
   };
 }

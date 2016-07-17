@@ -1,18 +1,17 @@
 #!/usr/bin/env ruby
 
-# Bind mounts hierarchy: [from, to (relative)]
+# Bind mounts hierarchy: from => to (relative)
 # If 'to' is nil, path will be the same
-mounts = [ ['/nix/store', nil],
-           ['/dev', nil],
-           ['/proc', nil],
-           ['/sys', nil],
-           ['/etc', 'host-etc'],
-           ['/tmp', 'host-tmp'],
-           ['/home', nil],
-           ['/var', nil],
-           ['/run', nil],
-           ['/root', nil],
-         ]
+mounts = { '/' => 'host',
+           '/proc' => nil,
+           '/sys' => nil,
+           '/nix' => nil,
+           '/tmp' => nil,
+           '/var' => nil,
+           '/run' => nil,
+           '/dev' => nil,
+           '/home' => nil,
+         }
 
 # Propagate environment variables
 envvars = [ 'TERM',
@@ -21,6 +20,7 @@ envvars = [ 'TERM',
             'XDG_RUNTIME_DIR',
             'LANG',
             'SSL_CERT_FILE',
+            'DBUS_SESSION_BUS_ADDRESS',
           ]
 
 require 'tmpdir'
@@ -53,6 +53,7 @@ $unshare = make_fcall 'unshare', [Fiddle::TYPE_INT], Fiddle::TYPE_INT
 
 MS_BIND = 0x1000
 MS_REC  = 0x4000
+MS_SLAVE  = 0x80000
 $mount = make_fcall 'mount', [Fiddle::TYPE_VOIDP,
                               Fiddle::TYPE_VOIDP,
                               Fiddle::TYPE_VOIDP,
@@ -61,12 +62,29 @@ $mount = make_fcall 'mount', [Fiddle::TYPE_VOIDP,
                     Fiddle::TYPE_INT
 
 # Read command line args
-abort "Usage: chrootenv swdir program args..." unless ARGV.length >= 2
-swdir = Pathname.new ARGV[0]
-execp = ARGV.drop 1
+abort "Usage: chrootenv program args..." unless ARGV.length >= 1
+execp = ARGV
+
+# Populate extra mounts
+if not ENV["CHROOTENV_EXTRA_BINDS"].nil?
+  $stderr.puts "CHROOTENV_EXTRA_BINDS is discussed for deprecation."
+  $stderr.puts "If you have a usecase, please drop a note in issue #16030."
+  $stderr.puts "Notice that we now bind-mount host FS to '/host' and symlink all directories from it to '/' by default."
+
+  for extra in ENV["CHROOTENV_EXTRA_BINDS"].split(':')
+    paths = extra.split('=')
+    if not paths.empty?
+      if paths.size <= 2
+        mounts[paths[0]] = paths[1]
+      else
+        $stderr.puts "Ignoring invalid entry in CHROOTENV_EXTRA_BINDS: #{extra}"
+      end
+    end
+  end
+end
 
 # Set destination paths for mounts
-mounts.map! { |x| [x[0], x[1].nil? ? x[0].sub(/^\/*/, '') : x[1]] }
+mounts = mounts.map { |k, v| [k, v.nil? ? k.sub(/^\/*/, '') : v] }.to_h
 
 # Create temporary directory for root and chdir
 root = Dir.mktmpdir 'chrootenv'
@@ -78,58 +96,50 @@ root = Dir.mktmpdir 'chrootenv'
 # we don't use threads at all.
 $cpid = $fork.call
 if $cpid == 0
-  # Save user UID and GID
-  uid = Process.uid
-  gid = Process.gid
+  # If we are root, no need to create new user namespace.
+  if Process.uid == 0
+    $unshare.call CLONE_NEWNS
+    # Mark all mounted filesystems as slave so changes
+    # don't propagate to the parent mount namespace.
+    $mount.call nil, '/', nil, MS_REC | MS_SLAVE, nil
+  else
+    # Save user UID and GID
+    uid = Process.uid
+    gid = Process.gid
 
-  # Create new mount and user namespaces
-  # CLONE_NEWUSER requires a program to be non-threaded, hence
-  # native fork above.
-  $unshare.call CLONE_NEWNS | CLONE_NEWUSER
+    # Create new mount and user namespaces
+    # CLONE_NEWUSER requires a program to be non-threaded, hence
+    # native fork above.
+    $unshare.call CLONE_NEWNS | CLONE_NEWUSER
 
-  # Map users and groups to the parent namespace
-  begin
-    # setgroups is only available since Linux 3.19
-    write_file '/proc/self/setgroups', 'deny'
-  rescue
+    # Map users and groups to the parent namespace
+    begin
+      # setgroups is only available since Linux 3.19
+      write_file '/proc/self/setgroups', 'deny'
+    rescue
+    end
+    write_file '/proc/self/uid_map', "#{uid} #{uid} 1"
+    write_file '/proc/self/gid_map', "#{gid} #{gid} 1"
   end
-  write_file '/proc/self/uid_map', "#{uid} #{uid} 1"
-  write_file '/proc/self/gid_map', "#{gid} #{gid} 1"
 
   # Do rbind mounts.
-  mounts.each do |x|
-    to = "#{root}/#{x[1]}"
+  mounts.each do |from, rto|
+    to = "#{root}/#{rto}"
     FileUtils.mkdir_p to
-    $mount.call x[0], to, nil, MS_BIND | MS_REC, nil
+    $mount.call from, to, nil, MS_BIND | MS_REC, nil
   end
 
+  # Don't make root private so privilege drops inside chroot are possible
+  File.chmod(0755, root)
   # Chroot!
   Dir.chroot root
   Dir.chdir '/'
 
-  # Symlink swdir hierarchy
-  mount_dirs = Set.new mounts.map { |x| Pathname.new x[1] }
-  link_swdir = lambda do |swdir, prefix|
-    swdir.find do |path|
-      rel = prefix.join path.relative_path_from(swdir)
-      # Don't symlink anything in binded or symlinked directories
-      Find.prune if mount_dirs.include? rel or rel.symlink?
-      if not rel.directory?
-        # File does not exist; make a symlink and bail out
-        rel.make_symlink path
-        Find.prune
-      end
-      # Recursively follow symlinks
-      link_swdir.call path.readlink, rel if path.symlink?
-    end
-  end
-  link_swdir.call swdir, Pathname.new('')
-
   # New environment
-  ENV.replace(Hash[ envvars.map { |x| [x, ENV[x]] } ])
+  new_env = Hash[ envvars.map { |x| [x, ENV[x]] } ]
 
   # Finally, exec!
-  exec *execp
+  exec(new_env, *execp, close_others: true, unsetenv_others: true)
 end
 
 # Wait for a child. If we catch a signal, resend it to child and continue

@@ -1,27 +1,33 @@
-{ stdenv, fetchurl, autoreconfHook, perl, python, ruby, bison, gperf, flex
+{ stdenv, fetchurl, perl, python, ruby, bison, gperf, flex
 , pkgconfig, which, gettext, gobjectIntrospection
 , gtk2, gtk3, wayland, libwebp, enchant, sqlite
-, libxml2, libsoup, libsecret, libxslt, harfbuzz
+, libxml2, libsoup, libsecret, libxslt, harfbuzz, xorg
 , gst-plugins-base
 , withGtk2 ? false
-, enableIntrospection ? true
+, enableIntrospection ? !stdenv.isDarwin
+, enableCredentialStorage ? !stdenv.isDarwin
+, readline, libedit
 }:
 
+assert stdenv.isDarwin -> !enableIntrospection;
+assert stdenv.isDarwin -> !enableCredentialStorage;
+
+with stdenv.lib;
 stdenv.mkDerivation rec {
   name = "webkitgtk-${version}";
-  version = "2.4.9";
+  version = "2.4.11";
 
   meta = with stdenv.lib; {
     description = "Web content rendering engine, GTK+ port";
     homepage = "http://webkitgtk.org/";
     license = licenses.bsd2;
     platforms = platforms.linux;
-    maintainers = [ maintainers.iyzsong ];
+    maintainers = [];
   };
 
   src = fetchurl {
     url = "http://webkitgtk.org/releases/${name}.tar.xz";
-    sha256 = "0r651ar3p0f8zwl7764kyimxk5hy88cwy116pv8cl5l8hbkjkpxg";
+    sha256 = "1xsvnvyvlywwyf6m9ainpsg87jkxjmd37q6zgz9cxb7v3c2ym2jq";
   };
 
   CC = "cc";
@@ -29,33 +35,54 @@ stdenv.mkDerivation rec {
   prePatch = ''
     patchShebangs Tools/gtk
   '';
-
-  # patch *.in between autoreconf and configure
-  postAutoreconf = "patch -p1 < ${./webcore-svg-libxml-cflags.patch}";
+  patches = [
+    ./webcore-svg-libxml-cflags.patch
+  ] ++ optionals stdenv.isDarwin [
+    ./impure-icucore.patch
+    ./quartz-webcore.patch
+    ./libc++.patch
+    ./plugin-none.patch
+  ];
 
   configureFlags = with stdenv.lib; [
     "--disable-geolocation"
+    "--disable-jit"
     (optionalString enableIntrospection "--enable-introspection")
-  ] ++ stdenv.lib.optional withGtk2 [
+  ] ++ optional withGtk2 [
     "--with-gtk=2.0"
+  ] ++ optionals (withGtk2 || stdenv.isDarwin) [
     "--disable-webkit2"
+  ] ++ optionals stdenv.isDarwin [
+    "--disable-x11-target"
+    "--enable-quartz-target"
+    "--disable-web-audio"
+  ] ++ optionals (!enableCredentialStorage) [
+    "--disable-credential-storage"
   ];
+
+  NIX_CFLAGS_COMPILE = "-DU_NOEXCEPT=";
 
   dontAddDisableDepTrack = true;
 
   nativeBuildInputs = [
-    autoreconfHook perl python ruby bison gperf flex
+    perl python ruby bison gperf flex
     pkgconfig which gettext gobjectIntrospection
   ];
 
   buildInputs = [
-    gtk2 wayland libwebp enchant
-    libxml2 libsecret libxslt harfbuzz
-    gst-plugins-base sqlite
-  ];
+    gtk2 libwebp enchant
+    libxml2 libxslt
+    gst-plugins-base sqlite xorg.libXt
+  ] ++ optionals enableCredentialStorage [
+    libsecret
+  ] ++ (if stdenv.isDarwin then [
+    readline libedit
+  ] else [
+    wayland
+  ]);
 
   propagatedBuildInputs = [
-    libsoup
+    libsoup harfbuzz/*icu in *.la*/
     (if withGtk2 then gtk2 else gtk3)
   ];
 

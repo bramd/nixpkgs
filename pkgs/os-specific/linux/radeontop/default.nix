@@ -1,18 +1,19 @@
-{ stdenv, fetchFromGitHub, pkgconfig, gettext, ncurses, libdrm, libpciaccess }:
+{ stdenv, fetchFromGitHub, pkgconfig, gettext, makeWrapper
+, ncurses, libdrm, libpciaccess, libxcb }:
 
-let version = "2015-08-06"; in
-stdenv.mkDerivation {
+stdenv.mkDerivation rec {
   name = "radeontop-${version}";
+  version = "2016-07-04";
 
   src = fetchFromGitHub {
-    sha256 = "01s0j28lk66wb46qymkk1nyk91iv22y3m56z4lqd16yaxmhl0v2f";
-    rev = "93c8ff2f07da8d4c204ee4872aed7eec834ff57d";
+    sha256 = "07pj5c3shnxljwq0hkksw7qnp8kb3n5ngihdmi4fqbmyz8in2vm5";
+    rev = "bb3ed18aa8877f2816348ca9f016bb61d67e636f";
     repo = "radeontop";
     owner = "clbr";
   };
 
-  buildInputs = [ ncurses libdrm libpciaccess ];
-  nativeBuildInputs = [ pkgconfig gettext ];
+  buildInputs = [ ncurses libdrm libpciaccess libxcb ];
+  nativeBuildInputs = [ pkgconfig gettext makeWrapper ];
 
   enableParallelBuilding = true;
 
@@ -20,7 +21,12 @@ stdenv.mkDerivation {
     substituteInPlace getver.sh --replace ver=unknown ver=${version}
   '';
 
-  makeFlags = "PREFIX=$(out)";
+  makeFlags = [ "PREFIX=$(out)" ];
+
+  postInstall = ''
+    wrapProgram $out/sbin/radeontop \
+      --prefix LD_LIBRARY_PATH : $out/lib
+  '';
 
   meta = with stdenv.lib; {
     description = "Top-like tool for viewing AMD Radeon GPU utilization";

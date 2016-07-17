@@ -32,25 +32,25 @@ in
             };
 
             fileSystem = mkOption {
-              type = types.string;
+              type = types.str;
               description = "XFS filesystem hosting the xfs_quota project.";
               default = "/";
             };
 
             path = mkOption {
-              type = types.string;
+              type = types.str;
               description = "Project directory.";
             };
 
             sizeSoftLimit = mkOption {
-              type = types.nullOr types.string;
+              type = types.nullOr types.str;
               default = null;
               example = "30g";
               description = "Soft limit of the project size";
             };
 
             sizeHardLimit = mkOption {
-              type = types.nullOr types.string;
+              type = types.nullOr types.str;
               default = null;
               example = "50g";
               description = "Hard limit of the project size.";
@@ -89,8 +89,8 @@ in
       nameValuePair "xfs_quota-${name}" {
         description = "Setup xfs_quota for project ${name}";
         script = ''
-          ${pkgs.xfsprogs}/bin/xfs_quota -x -c 'project -s ${name}' ${opts.fileSystem}
-          ${pkgs.xfsprogs}/bin/xfs_quota -x -c 'limit -p ${limitOptions opts} ${name}' ${opts.fileSystem}
+          ${pkgs.xfsprogs.bin}/bin/xfs_quota -x -c 'project -s ${name}' ${opts.fileSystem}
+          ${pkgs.xfsprogs.bin}/bin/xfs_quota -x -c 'limit -p ${limitOptions opts} ${name}' ${opts.fileSystem}
         '';
 
         wantedBy = [ "multi-user.target" ];

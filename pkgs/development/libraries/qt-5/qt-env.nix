@@ -1,8 +1,6 @@
-{ runCommand, lndir }:
+{ runCommand, lndir, qtbase }: name: paths:
 
-{ paths, qtbase }:
-
-runCommand "qt-env" { inherit paths qtbase; } ''
+runCommand name { inherit paths qtbase; } ''
 
 mkdir -p "$out/bin" "$out/mkspecs" "$out/include" "$out/lib" "$out/share"
 
@@ -16,16 +14,15 @@ Qml2Imports = lib/qt5/qml
 Documentation = share/doc/qt5
 EOF
 
-for path in $paths; do
-    if [[ -d "$path/mkspecs" ]]; then
-        ${lndir}/bin/lndir -silent "$path/mkspecs" "$out/mkspecs"
+for pkg in $paths $qtbase; do
+    if [[ -d "$pkg/mkspecs" ]]; then
+        ${lndir}/bin/lndir -silent "$pkg/mkspecs" "$out/mkspecs"
 
         for dir in bin include lib share; do
-            if [[ -d "$path/$dir" ]]; then
-                ${lndir}/bin/lndir -silent "$path/$dir" "$out/$dir"
+            if [[ -d "$pkg/$dir" ]]; then
+                ${lndir}/bin/lndir -silent "$pkg/$dir" "$out/$dir"
             fi
         done
     fi
 done
-
 ''

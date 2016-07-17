@@ -1,6 +1,7 @@
 { stdenv, fetchurl, pkgconfig, perl, flex, bison, libpcap, libnl, c-ares
 , gnutls, libgcrypt, geoip, openssl, lua5, makeDesktopItem, python, libcap, glib
-, withGtk ? false, gtk ? null
+, zlib
+, withGtk ? false, gtk ? null, pango ? null, cairo ? null, gdk_pixbuf ? null
 , withQt ? false, qt4 ? null
 }:
 
@@ -10,7 +11,7 @@ assert withQt -> !withGtk && qt4 != null;
 with stdenv.lib;
 
 let
-  version = "1.12.5";
+  version = "2.0.4";
   variant = if withGtk then "gtk" else if withQt then "qt" else "cli";
 in
 
@@ -18,15 +19,15 @@ stdenv.mkDerivation {
   name = "wireshark-${variant}-${version}";
 
   src = fetchurl {
-    url = "http://www.wireshark.org/download/src/wireshark-${version}.tar.bz2";
-    sha256 = "10mxgj916bwv92pfhk4kldcaanr9vndjklzp9ypdxr29xyr7gwfh";
+    url = "http://www.wireshark.org/download/src/all-versions/wireshark-${version}.tar.bz2";
+    sha256 = "19g11m8m8qd7dkcvcb27lyppklg608d9ap7wr3mr88clm4nwiacy";
   };
 
   buildInputs = [
     bison flex perl pkgconfig libpcap lua5 openssl libgcrypt gnutls
-    geoip libnl c-ares python libcap glib
+    geoip libnl c-ares python libcap glib zlib
   ] ++ optional withQt qt4
-    ++ optional withGtk gtk;
+    ++ (optionals withGtk [gtk pango cairo gdk_pixbuf]);
 
   patches = [ ./wireshark-lookup-dumpcap-in-path.patch ];
 
@@ -52,8 +53,6 @@ stdenv.mkDerivation {
     mkdir -p "$out"/share/icons/
     cp "$desktopItem/share/applications/"* "$out/share/applications/"
     cp image/wsicon.svg "$out"/share/icons/wireshark.svg
-  '' + optionalString withQt ''
-    mv "$out/bin/wireshark-qt" "$out/bin/wireshark"
   '';
 
   enableParallelBuilding = true;
@@ -70,6 +69,6 @@ stdenv.mkDerivation {
     '';
 
     platforms = stdenv.lib.platforms.linux;
-    maintainers = with stdenv.lib.maintainers; [ simons bjornfor ];
+    maintainers = with stdenv.lib.maintainers; [ bjornfor fpletz ];
   };
 }

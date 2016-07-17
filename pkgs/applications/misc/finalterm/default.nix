@@ -1,7 +1,7 @@
 { stdenv, lib, fetchgit, makeWrapper
 , pkgconfig, cmake, libxml2, vala, intltool, libmx, gnome3, gtk3, gtk_doc
 , keybinder3, clutter_gtk, libnotify
-, libxkbcommon, xlibs, udev
+, libxkbcommon, xorg, udev
 , bashInteractive
 }:
 
@@ -11,13 +11,13 @@ stdenv.mkDerivation {
   src = fetchgit {
     url = "https://github.com/p-e-w/finalterm.git";
     rev = "39b078b2a96a5c3c9e74f92b1929f383d220ca8b";
-    sha256 = "c3ec9b36692b66a3aaa3125b2947c83beda4705b6d6f4a10b9bde9d8db8367c5";
+    sha256 = "14viln5nabr39lafg1lzf6ydibz1h5d9346drp435ljxc6wsh21i";
   };
 
   buildInputs = [
     pkgconfig cmake vala intltool gtk3 gnome3.gnome_common gnome3.libgee
     gtk_doc clutter_gtk libmx keybinder3 libxml2 libnotify makeWrapper
-    xlibs.libpthreadstubs xlibs.libXdmcp xlibs.libxshmfence
+    xorg.libpthreadstubs xorg.libXdmcp xorg.libxshmfence
     libxkbcommon
   ] ++ lib.optionals stdenv.isLinux [
     udev
@@ -58,6 +58,6 @@ stdenv.mkDerivation {
     '';
     license = licenses.gpl3Plus;
     maintainers = with maintainers; [ cstrahan ];
-    platforms = with platforms; linux;
+    platforms = platforms.linux;
   };
 }

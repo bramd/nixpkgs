@@ -20,9 +20,9 @@
   libogg, libtheora, libvorbis, libdvdcss, a52dec, fdk_aac,
   lame, faac, ffmpeg, libdvdread, libdvdnav, libbluray,
   mp4v2, mpeg2dec, x264, libmkv,
-  fontconfig, freetype,
+  fontconfig, freetype, hicolor_icon_theme,
   glib, gtk, webkitgtk, intltool, libnotify,
-  gst_all_1, dbus_glib, udev,
+  gst_all_1, dbus_glib, udev, libgudev,
   useGtk ? true,
   useWebKitGtk ? false # This prevents ghb from starting in my tests
 }:
@@ -37,6 +37,7 @@ stdenv.mkDerivation rec {
   buildInputsX = stdenv.lib.optionals useGtk [
     glib gtk intltool libnotify
     gst_all_1.gstreamer gst_all_1.gst-plugins-base dbus_glib udev
+    libgudev
   ] ++ stdenv.lib.optionals useWebKitGtk [ webkitgtk ];
 
   # Did not test compiling with it
@@ -44,7 +45,7 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [ python pkgconfig yasm autoconf automake libtool m4 ];
   buildInputs = [
-    fribidi fontconfig freetype
+    fribidi fontconfig freetype hicolor_icon_theme
     libass libsamplerate libxml2 bzip2
     libogg libtheora libvorbis libdvdcss a52dec libmkv fdk_aac
     lame ffmpeg libdvdread libdvdnav libbluray mp4v2 mpeg2dec x264

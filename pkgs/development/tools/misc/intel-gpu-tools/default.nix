@@ -1,16 +1,20 @@
 { stdenv, fetchurl, pkgconfig, libdrm, libpciaccess, cairo, dri2proto, udev
-, libX11, libXext, libXv, libXrandr, glib, bison, libunwind }:
+, libX11, libXext, libXv, libXrandr, glib, bison, libunwind, python3 }:
 
 stdenv.mkDerivation rec {
-  name = "intel-gpu-tools-1.11";
+  name = "intel-gpu-tools-1.14";
 
   src = fetchurl {
     url = "http://xorg.freedesktop.org/archive/individual/app/${name}.tar.bz2";
-    sha256 = "1r5dbp2gdxqryv1fhxy83k4d1kfp7rv8q370fhncamrb8m8390j8";
+    sha256 = "030g1akybk19y3jcxd8pp573ymrd4w7mmzxbspp064lwdv9y35im";
   };
 
   buildInputs = [ pkgconfig libdrm libpciaccess cairo dri2proto udev libX11
-                  libXext libXv libXrandr glib bison libunwind ];
+                  libXext libXv libXrandr glib bison libunwind python3 ];
+
+  preBuild = ''
+    patchShebangs debugger/system_routine/pre_cpp.py
+  '';
 
   meta = with stdenv.lib; {
     homepage = https://01.org/linuxgraphics/;

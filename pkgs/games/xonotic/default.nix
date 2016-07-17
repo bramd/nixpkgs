@@ -8,11 +8,11 @@
 }:
 
 stdenv.mkDerivation rec {
-  name = "xonotic-0.8.0";
+  name = "xonotic-0.8.1";
 
   src = fetchurl {
     url = "http://dl.xonotic.org/${name}.zip";
-    sha256 = "0w336750sq8nwqljlcj3znk4iaj3nvn6id144d7j72vsh84ci1qa";
+    sha256 = "0vy4hkrbpz9g91gb84cbv4xl845qxaknak6hshk2yflrw90wr2xy";
   };
 
   buildInputs = [
@@ -32,9 +32,9 @@ stdenv.mkDerivation rec {
   #'';
 
   NIX_LDFLAGS = ''
-    -rpath ${zlib}/lib
-    -rpath ${libvorbis}/lib
-    -rpath ${curl}/lib
+    -rpath ${zlib.out}/lib
+    -rpath ${libvorbis.out}/lib
+    -rpath ${curl.out}/lib
   '';
 
   buildPhase = ''

@@ -1,14 +1,21 @@
 { stdenv, fetchurl, pkgconfig, json_c, hidapi }:
 
 stdenv.mkDerivation rec {
-  name = "libu2f-host-0.0.4";
+  name = "libu2f-host-1.1.1";
 
   src = fetchurl {
     url = "https://developers.yubico.com/libu2f-host/Releases/${name}.tar.xz";
-    sha256 = "1mpa4m3vchqa0rm1zw0fgby3yhp35k4y6jlqdd02difm3dhk28l5";
+    sha256 = "0g0f012w0c00cvj5g319x2b8prbh0d3fcac9960cy7xsd8chckg1";
   };
 
-  buildInputs = [ pkgconfig json_c hidapi ];
+  nativeBuildInputs = [ pkgconfig ];
+  buildInputs = [ json_c hidapi ];
+
+  doCheck = true;
+
+  postInstall = ''
+    install -D -t $out/lib/udev/rules.d 70-u2f.rules
+  '';
 
   meta = with stdenv.lib; {
     homepage = https://developers.yubico.com/libu2f-host;

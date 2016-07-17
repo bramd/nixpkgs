@@ -9,18 +9,23 @@
    $ nix-build pkgs/top-level/release.nix -A coreutils.x86_64-linux
 */
 
-{ nixpkgs ? { outPath = (import ./all-packages.nix {}).lib.cleanSource ../..; revCount = 1234; shortRev = "abcdef"; }
+{ nixpkgs ? { outPath = (import ../.. {}).lib.cleanSource ../..; revCount = 1234; shortRev = "abcdef"; }
 , officialRelease ? false
 , # The platforms for which we build Nixpkgs.
   supportedSystems ? [ "x86_64-linux" "i686-linux" "x86_64-darwin" ]
+, scrubJobs ? true
 }:
 
-with import ./release-lib.nix { inherit supportedSystems; };
+with import ./release-lib.nix { inherit supportedSystems scrubJobs; };
 
 let
 
+  lib = pkgs.lib;
+
   jobs =
-    { tarball = import ./make-tarball.nix { inherit nixpkgs officialRelease; };
+    { tarball = import ./make-tarball.nix { inherit pkgs nixpkgs officialRelease; };
+
+      metrics = import ./metrics.nix { inherit pkgs nixpkgs; };
 
       manual = import ../../doc;
       lib-tests = import ../../lib/tests/release.nix { inherit nixpkgs; };
@@ -30,6 +35,7 @@ let
           meta.description = "Release-critical builds for the Nixpkgs unstable channel";
           constituents =
             [ jobs.tarball
+              jobs.metrics
               jobs.manual
               jobs.lib-tests
               jobs.stdenv.x86_64-linux
@@ -37,16 +43,51 @@ let
               jobs.stdenv.x86_64-darwin
               jobs.linux.x86_64-linux
               jobs.linux.i686-linux
+              jobs.python.x86_64-linux
+              jobs.python.i686-linux
+              jobs.python.x86_64-darwin
+              jobs.python3.x86_64-linux
+              jobs.python3.i686-linux
+              jobs.python3.x86_64-darwin
+              # Needed by travis-ci to test PRs
+              jobs.nox.i686-linux
+              jobs.nox.x86_64-linux
+              jobs.nox.x86_64-darwin
               # Ensure that X11/GTK+ are in order.
               jobs.thunderbird.x86_64-linux
               jobs.thunderbird.i686-linux
-              jobs.glib-tested.x86_64-linux # standard glib doesn't do checks
-              jobs.glib-tested.i686-linux
-            ];
+              # Ensure that basic stuff works on darwin
+              jobs.git.x86_64-darwin
+              jobs.mysql.x86_64-darwin
+              jobs.vim.x86_64-darwin
+            ] ++ lib.collect lib.isDerivation jobs.stdenvBootstrapTools;
+        };
+
+      stdenvBootstrapTools.i686-linux =
+        { inherit (import ../stdenv/linux/make-bootstrap-tools.nix { system = "i686-linux"; }) dist test; };
+
+      stdenvBootstrapTools.x86_64-linux =
+        { inherit (import ../stdenv/linux/make-bootstrap-tools.nix { system = "x86_64-linux"; }) dist test; };
+
+      stdenvBootstrapTools.x86_64-darwin =
+        let
+          bootstrap = import ../stdenv/darwin/make-bootstrap-tools.nix { system = "x86_64-darwin"; };
+        in {
+          # Lightweight distribution and test
+          inherit (bootstrap) dist test;
+          # Test a full stdenv bootstrap from the bootstrap tools definition
+          inherit (bootstrap.test-pkgs) stdenv;
         };
 
     } // (mapTestOn ((packagePlatforms pkgs) // rec {
 
+      # TODO: most (but possibly not all) of the jobs specified here are unnecessary now that we have release-lib.nix
+      # traversing all packages and looking at their meta.platform attributes. Someone who's better at this than I am
+      # should go through these and kill the ones that are safe to kill.
+      #
+      # <niksnut> note that all that " = linux" stuff in release.nix is legacy, from before we had meta.platforms
+      # <copumpkin> niksnut: so should I just kill all the obsolete jobs in release.nix?
+      # <niksnut> I don't know if they're all covered
       abcde = linux;
       aspell = all;
       atlas = linux;
@@ -54,13 +95,11 @@ let
       binutils = linux;
       bind = linux;
       bvi = all;
-      castle_combat = linux;
       cdrkit = linux;
       classpath = linux;
       ddrescue = linux;
       dhcp = linux;
       dico = linux;
-      dietlibc = linux;
       diffutils = all;
       disnix = all;
       disnixos = linux;
@@ -84,12 +123,9 @@ let
       gajim = linux;
       gawk = all;
       gcc = linux;
-      gcc44 = linux;
       gcj = linux;
       ghostscript = linux;
       ghostscriptX = linux;
-      git = linux;
-      gitFull = linux;
       glibc = linux;
       glibcLocales = linux;
       glxinfo = linux;
@@ -119,7 +155,7 @@ let
       lynx = linux;
       lzma = linux;
       man = linux;
-      manpages = linux;
+      man-pages = linux;
       maxima = linux;
       mc = linux;
       mcabber = linux;
@@ -133,11 +169,7 @@ let
       mod_python = linux;
       mupen64plus = linux;
       mutt = linux;
-      mysql = linux;
-      mysql51 = linux;
-      mysql55 = linux;
       nano = allBut cygwin;
-      ncat = linux;
       netcat = all;
       nss_ldap = linux;
       nssmdns = linux;
@@ -149,12 +181,12 @@ let
       pmccabe = linux;
       ppl = all;
       procps = linux;
-      pthreadmanpages = linux;
       pygtk = linux;
       python = allBut cygwin;
       pythonFull = linux;
       sbcl = linux;
       qt3 = linux;
+      qt4_clang = ["i686-linux"];
       quake3demo = linux;
       reiserfsprogs = linux;
       rubber = allBut cygwin;
@@ -181,10 +213,9 @@ let
       uae = linux;
       viking = linux;
       vice = linux;
-      vim = linux;
       vimHugeX = linux;
       vncrec = linux;
-      vorbisTools = linux;
+      vorbis-tools = linux;
       vsftpd = linux;
       w3m = all;
       weechat = linux;
@@ -207,14 +238,18 @@ let
       zsh = linux;
       zsnes = ["i686-linux"];
 
+      #emacs24PackagesNg = packagePlatforms pkgs.emacs24PackagesNg;
+
       gnome = {
         gnome_panel = linux;
         metacity = linux;
         gnome_vfs = linux;
       };
 
-      haskell.compiler = packagePlatforms pkgs.haskell-ng.compiler;
+      haskell.compiler = packagePlatforms pkgs.haskell.compiler;
       haskellPackages = packagePlatforms pkgs.haskellPackages;
+
+      #rPackages = packagePlatforms pkgs.rPackages;
 
       strategoPackages = {
         sdf = linux;
@@ -224,8 +259,21 @@ let
         dryad = linux;
       };
 
+      ocamlPackages = { };
+
+      perlPackages = { };
+
       pythonPackages = {
-        zfec = linux;
+        pandas = unix;
+        scikitlearn = unix;
+      };
+      python2Packages = { };
+      python27Packages = { };
+      python3Packages = { };
+      python35Packages = {
+        blaze = unix;
+        pandas = unix;
+        scikitlearn = unix;
       };
 
       xorg = {
@@ -254,7 +302,6 @@ let
         xf86videonv = linux;
         xf86videovesa = linux;
         xf86videovmware = linux;
-        xf86videomodesetting = linux;
         xfs = linux ++ darwin;
         xinput = linux ++ darwin;
         xkbcomp = linux ++ darwin;
@@ -284,14 +331,6 @@ let
         xfdesktop = linux;
         xfwm4 = linux;
       };
-
-      linuxPackages_testing = { };
-      linuxPackages_grsec_stable_desktop = { };
-      linuxPackages_grsec_stable_server = { };
-      linuxPackages_grsec_stable_server_xen = { };
-      linuxPackages_grsec_testing_desktop = { };
-      linuxPackages_grsec_testing_server = { };
-      linuxPackages_grsec_testing_server_xen = { };
 
     } ));
 

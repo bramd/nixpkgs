@@ -61,7 +61,7 @@ while (<>) {
       #next unless $pkg eq "xcbutil";
     }
 
-    $tarball =~ /\/([^\/]*)\.tar\.bz2$/;
+    $tarball =~ /\/([^\/]*)\.tar\.(bz2|gz|xz)$/;
     my $pkgName = $1;
 
     print "  $pkg $pkgName\n";
@@ -82,7 +82,7 @@ while (<>) {
     print "\nunpacking $path\n";
     system "rm -rf '$tmpDir'";
     mkdir $tmpDir, 0700;
-    system "cd '$tmpDir' && tar xfj '$path'";
+    system "cd '$tmpDir' && tar xf '$path'";
     die "cannot unpack `$path'" if $? != 0;
     print "\n";
 
@@ -229,7 +229,10 @@ open OUT, ">default.nix";
 print OUT "";
 print OUT <<EOF;
 # THIS IS A GENERATED FILE.  DO NOT EDIT!
-args: with args;
+args @ { clangStdenv, fetchurl, fetchgit, fetchpatch, stdenv, pkgconfig, intltool, freetype, fontconfig
+, libxslt, expat, libpng, zlib, perl, mesa_drivers, spice_protocol
+, dbus, libuuid, openssl, gperf, m4, libevdev, tradcpp, libinput, mcpp, makeWrapper, autoreconfHook
+, autoconf, automake, libtool, xmlto, asciidoc, flex, bison, python, mtdev, pixman, ... }: with args;
 
 let
 
@@ -277,6 +280,7 @@ foreach my $pkg (sort (keys %pkgURLs)) {
       sha256 = "$pkgHashes{$pkg}";
     };
     buildInputs = [pkgconfig $inputs];$extraAttrs
+    meta.platforms = stdenv.lib.platforms.unix;
   }) // {inherit $inputs;};
 
 EOF

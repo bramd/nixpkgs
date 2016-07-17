@@ -6,7 +6,7 @@ with import ./attrsets.nix;
 with import ./options.nix;
 with import ./trivial.nix;
 with import ./strings.nix;
-with {inherit (import ./modules.nix) mergeDefinitions; };
+with {inherit (import ./modules.nix) mergeDefinitions filterOverrides; };
 
 rec {
 
@@ -93,11 +93,15 @@ rec {
 
     # derivation is a reserved keyword.
     package = mkOptionType {
-      name = "derivation";
+      name = "package";
       check = x: isDerivation x || isStorePath x;
       merge = loc: defs:
         let res = mergeOneOption loc defs;
         in if isDerivation res then res else toDerivation res;
+    };
+
+    shellPackage = package // {
+      check = x: (package.check x) && (hasAttr "shellPath" x);
     };
 
     path = mkOptionType {
@@ -114,13 +118,17 @@ rec {
       name = "list of ${elemType.name}s";
       check = isList;
       merge = loc: defs:
-        map (x: x.value) (filter (x: x ? value) (concatLists (imap (n: def: imap (m: def':
-            (mergeDefinitions
-              (loc ++ ["[definition ${toString n}-entry ${toString m}]"])
-              elemType
-              [{ inherit (def) file; value = def'; }]
-            ).optionalValue
-          ) def.value) defs)));
+        map (x: x.value) (filter (x: x ? value) (concatLists (imap (n: def:
+          if isList def.value then
+            imap (m: def':
+              (mergeDefinitions
+                (loc ++ ["[definition ${toString n}-entry ${toString m}]"])
+                elemType
+                [{ inherit (def) file; value = def'; }]
+              ).optionalValue
+            ) def.value
+          else
+            throw "The option value `${showOption loc}' in `${def.file}' is not a list.") defs)));
       getSubOptions = prefix: elemType.getSubOptions (prefix ++ ["*"]);
       getSubModules = elemType.getSubModules;
       substSubModules = m: listOf (elemType.substSubModules m);
@@ -166,6 +174,23 @@ rec {
         substSubModules = m: loaOf (elemType.substSubModules m);
       };
 
+    # List or element of ...
+    loeOf = elemType: mkOptionType {
+      name = "element or list of ${elemType.name}s";
+      check = x: isList x || elemType.check x;
+      merge = loc: defs:
+        let
+          defs' = filterOverrides defs;
+          res = (head defs').value;
+        in
+        if isList res then concatLists (getValues defs')
+        else if lessThan 1 (length defs') then
+          throw "The option `${showOption loc}' is defined multiple times, in ${showFiles (getFiles defs)}."
+        else if !isString res then
+          throw "The option `${showOption loc}' does not have a string value, in ${showFiles (getFiles defs)}."
+        else res;
+    };
+
     uniq = elemType: mkOptionType {
       inherit (elemType) name check;
       merge = mergeOneOption;
@@ -176,9 +201,9 @@ rec {
 
     nullOr = elemType: mkOptionType {
       name = "null or ${elemType.name}";
-      check = x: builtins.isNull x || elemType.check x;
+      check = x: x == null || elemType.check x;
       merge = loc: defs:
-        let nrNulls = count (def: isNull def.value) defs; in
+        let nrNulls = count (def: def.value == null) defs; in
         if nrNulls == length defs then null
         else if nrNulls != 0 then
           throw "The option `${showOption loc}' is defined both null and not null, in ${showFiles (getFiles defs)}."
@@ -213,11 +238,18 @@ rec {
         substSubModules = m: submodule m;
       };
 
-    enum = values: mkOptionType {
-      name = "one of ${concatStringsSep ", " values}";
-      check = flip elem values;
-      merge = mergeOneOption;
-    };
+    enum = values:
+      let
+        show = v:
+               if builtins.isString v then ''"${v}"''
+          else if builtins.isInt v then builtins.toString v
+          else ''<${builtins.typeOf v}>'';
+      in
+      mkOptionType {
+        name = "one of ${concatMapStringsSep ", " show values}";
+        check = flip elem values;
+        merge = mergeOneOption;
+      };
 
     either = t1: t2: mkOptionType {
       name = "${t1.name} or ${t2.name}";

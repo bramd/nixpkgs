@@ -1,18 +1,19 @@
 { stdenv, fetchurl, openssl, libtool, perl, libxml2 }:
 
-let version = "9.10.2-P4"; in
+let version = "9.10.4"; in
 
 stdenv.mkDerivation rec {
   name = "bind-${version}";
 
   src = fetchurl {
     url = "http://ftp.isc.org/isc/bind9/${version}/${name}.tar.gz";
-    sha256 = "1f4w89qmsgql88nbykz82p2nwbf5m889vzlfy9bjj8gg3pn222y0";
+    sha256 = "0mmhzi4483mkak47wj255a36g3v0yilxwfwlbckr1hssinri5m7q";
   };
 
-  patchPhase = ''
-    sed -i 's/^\t.*run/\t/' Makefile.in
-  '';
+  outputs = [ "dev" "bin" "out" "man" ];
+
+  patches = [ ./dont-keep-configure-flags.patch ./remove-mkdir-var.patch ] ++
+    stdenv.lib.optional stdenv.isDarwin ./darwin-openssl-linking-fix.patch;
 
   buildInputs = [ openssl libtool perl libxml2 ];
 
@@ -20,7 +21,7 @@ stdenv.mkDerivation rec {
     "--localstatedir=/var"
     "--with-libtool"
     "--with-libxml2=${libxml2}"
-    "--with-openssl=${openssl}"
+    "--with-openssl=${openssl.dev}"
     "--without-atf"
     "--without-dlopen"
     "--without-docbook-xsl"
@@ -32,12 +33,21 @@ stdenv.mkDerivation rec {
     "--without-python"
   ];
 
+  postInstall = ''
+    moveToOutput bin/bind9-config $dev
+    moveToOutput bin/isc-config.sh $dev
+
+    for f in $out/lib/*.la; do
+      sed -i $f -e 's|-L${openssl.dev}|-L${openssl.out}|g'
+    done
+  '';
+
   meta = {
     homepage = "http://www.isc.org/software/bind";
     description = "Domain name server";
     license = stdenv.lib.licenses.isc;
 
-    maintainers = with stdenv.lib.maintainers; [viric simons];
+    maintainers = with stdenv.lib.maintainers; [viric peti];
     platforms = with stdenv.lib.platforms; unix;
   };
 }

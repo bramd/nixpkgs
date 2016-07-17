@@ -16,13 +16,6 @@ let
   cfg = config.services.xserver;
   xorg = pkgs.xorg;
 
-  vaapiDrivers = pkgs.buildEnv {
-    name = "vaapi-drivers";
-    paths = cfg.vaapiDrivers;
-    # We only want /lib/dri, but with a single input path, we need "/" for it to work
-    pathsToLink = [ "/" ];
-  };
-
   fontconfig = config.fonts.fontconfig;
   xresourcesXft = pkgs.writeText "Xresources-Xft" ''
     ${optionalString (fontconfig.dpi != 0) ''Xft.dpi: ${toString fontconfig.dpi}''}
@@ -37,7 +30,13 @@ let
   # file provided by services.xserver.displayManager.session.script
   xsession = wm: dm: pkgs.writeScript "xsession"
     ''
-      #! /bin/sh
+      #! ${pkgs.bash}/bin/bash
+
+      ${optionalString cfg.displayManager.logToJournal ''
+        if [ -z "$_DID_SYSTEMD_CAT" ]; then
+          _DID_SYSTEMD_CAT=1 exec ${config.systemd.package}/bin/systemd-cat -t xsession -- "$0" "$@"
+        fi
+      ''}
 
       . /etc/profile
       cd "$HOME"
@@ -46,36 +45,13 @@ let
       sessionType="$1"
       if [ "$sessionType" = default ]; then sessionType=""; fi
 
-      ${optionalString (!cfg.displayManager.job.logsXsession) ''
+      ${optionalString (!cfg.displayManager.job.logsXsession && !cfg.displayManager.logToJournal) ''
         exec > ~/.xsession-errors 2>&1
       ''}
 
       ${optionalString cfg.startDbusSession ''
         if test -z "$DBUS_SESSION_BUS_ADDRESS"; then
-          exec ${pkgs.dbus.tools}/bin/dbus-launch --exit-with-session "$0" "$sessionType"
-        fi
-      ''}
-
-      ${optionalString cfg.displayManager.desktopManagerHandlesLidAndPower ''
-        # Stop systemd from handling the power button and lid switch,
-        # since presumably the desktop environment will handle these.
-        if [ -z "$_INHIBITION_LOCK_TAKEN" ]; then
-          export _INHIBITION_LOCK_TAKEN=1
-          if ! ${config.systemd.package}/bin/loginctl show-session $XDG_SESSION_ID | grep -q '^RemoteHost='; then
-            exec ${config.systemd.package}/bin/systemd-inhibit --what=handle-lid-switch:handle-power-key --why="Desktop environment handles power events" "$0" "$sessionType"
-          fi
-        fi
-
-      ''}
-
-      ${optionalString cfg.startGnuPGAgent ''
-        if test -z "$SSH_AUTH_SOCK"; then
-            # Restart this script as a child of the GnuPG agent.
-            exec "${pkgs.gnupg}/bin/gpg-agent"                         \
-              --enable-ssh-support --daemon                             \
-              --pinentry-program "${pkgs.pinentry}/bin/pinentry-gtk-2"  \
-              --write-env-file "$HOME/.gpg-agent-info"                  \
-              "$0" "$sessionType"
+          exec ${pkgs.dbus.dbus-launch} --exit-with-session "$0" "$sessionType"
         fi
       ''}
 
@@ -85,14 +61,11 @@ let
       # Start PulseAudio if enabled.
       ${optionalString (config.hardware.pulseaudio.enable) ''
         ${optionalString (!config.hardware.pulseaudio.systemWide)
-          "${config.hardware.pulseaudio.package}/bin/pulseaudio --start"
+          "${config.hardware.pulseaudio.package.out}/bin/pulseaudio --start"
         }
 
         # Publish access credentials in the root window.
-        ${config.hardware.pulseaudio.package}/bin/pactl load-module module-x11-publish "display=$DISPLAY"
-
-        # Keep track of devices.  Mostly useful for Phonon/KDE.
-        ${config.hardware.pulseaudio.package}/bin/pactl load-module module-device-manager "do_routing=1"
+        ${config.hardware.pulseaudio.package.out}/bin/pactl load-module module-x11-publish "display=$DISPLAY"
       ''}
 
       # Tell systemd about our $DISPLAY. This is needed by the
@@ -107,12 +80,16 @@ let
           ${xorg.xrdb}/bin/xrdb -merge ~/.Xdefaults
       fi
 
-      export LIBVA_DRIVERS_PATH=${vaapiDrivers}/lib/dri
-
       # Speed up application start by 50-150ms according to
       # http://kdemonkey.blogspot.nl/2008/04/magic-trick.html
       rm -rf $HOME/.compose-cache
       mkdir $HOME/.compose-cache
+
+      # Work around KDE errors when a user first logs in and
+      # .local/share doesn't exist yet.
+      mkdir -p $HOME/.local/share
+
+      unset _DID_SYSTEMD_CAT
 
       ${cfg.displayManager.sessionCommands}
 
@@ -156,6 +133,14 @@ let
         '') dm}
         (*) echo "$0: Desktop manager '$desktopManager' not found.";;
       esac
+
+      ${optionalString (cfg.startDbusSession && cfg.updateDbusEnvironment) ''
+        ${pkgs.glib}/bin/gdbus call --session \
+          --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
+          --method org.freedesktop.DBus.UpdateActivationEnvironment \
+          "{$(env | ${pkgs.gnused}/bin/sed "s/'/\\\\'/g; s/\([^=]*\)=\(.*\)/'\1':'\2'/" \
+                  | ${pkgs.coreutils}/bin/paste -sd,)}"
+      ''}
 
       test -n "$waitPID" && wait "$waitPID"
       exit 0
@@ -224,17 +209,6 @@ in
         default = [ "nobody" ];
         description = ''
           A list of users which will not be shown in the display manager.
-        '';
-      };
-
-      desktopManagerHandlesLidAndPower = mkOption {
-        type = types.bool;
-        default = false;
-        description = ''
-          Whether the display manager should prevent systemd from handling
-          lid and power events. This is normally handled by the desktop
-          environment's power manager. Turn this off when using a minimal
-          X11 setup without a full power manager.
         '';
       };
 
@@ -312,14 +286,26 @@ in
 
       };
 
+      logToJournal = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          By default, the stdout/stderr of sessions is written
+          to <filename>~/.xsession-errors</filename>. When this option
+          is enabled, it will instead be written to the journal.
+        '';
+      };
+
     };
 
   };
 
   config = {
-
-    services.xserver.displayManager.xserverBin = "${xorg.xorgserver}/bin/X";
-
+    services.xserver.displayManager.xserverBin = "${xorg.xorgserver.out}/bin/X";
   };
+
+  imports = [
+   (mkRemovedOptionModule [ "services" "xserver" "displayManager" "desktopManagerHandlesLidAndPower" ])
+  ];
 
 }

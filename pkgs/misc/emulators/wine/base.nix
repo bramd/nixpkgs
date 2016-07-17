@@ -1,5 +1,7 @@
 { stdenv, lib, pkgArches,
   name, version, src, monos, geckos, platforms,
+  pkgconfig, fontforge, makeWrapper, flex, bison,
+  supportFlags,
   buildScript ? null, configureFlags ? ""
 }:
 
@@ -13,26 +15,66 @@ stdenv.mkDerivation ((lib.optionalAttrs (! isNull buildScript) {
 }) // rec {
   inherit name src configureFlags;
 
-  buildInputs = toBuildInputs pkgArches (pkgs: with pkgs; [
-    pkgconfig alsaLib lcms2 fontforge libxml2 libxslt makeWrapper flex bison
-  ]);
+  nativeBuildInputs = [
+    pkgconfig fontforge makeWrapper flex bison
+  ];
 
-  nativeBuildInputs = toBuildInputs pkgArches (pkgs: (with pkgs; [
-    freetype fontconfig mesa mesa_noglu.osmesa libdrm libpng libjpeg openssl gnutls cups ncurses
-  ]) ++ (with pkgs.xlibs; [
-    xlibs libXi libXcursor libXinerama libXrandr libXrender libXxf86vm libXcomposite
-  ]));
+  buildInputs = toBuildInputs pkgArches (with supportFlags; (pkgs:
+  [ pkgs.freetype ]
+  ++ lib.optional pngSupport             pkgs.libpng
+  ++ lib.optional jpegSupport            pkgs.libjpeg
+  ++ lib.optional cupsSupport            pkgs.cups
+  ++ lib.optional colorManagementSupport pkgs.lcms2
+  ++ lib.optional gettextSupport         pkgs.gettext
+  ++ lib.optional dbusSupport            pkgs.dbus
+  ++ lib.optional mpg123Support          pkgs.mpg123
+  ++ lib.optional openalSupport          pkgs.openal
+  ++ lib.optional cairoSupport           pkgs.cairo
+  ++ lib.optional tiffSupport            pkgs.libtiff
+  ++ lib.optional odbcSupport            pkgs.unixODBC
+  ++ lib.optional netapiSupport          pkgs.samba3_light
+  ++ lib.optional cursesSupport          pkgs.ncurses
+  ++ lib.optional vaSupport              pkgs.libva
+  ++ lib.optional pcapSupport            pkgs.libpcap
+  ++ lib.optional v4lSupport             pkgs.libv4l
+  ++ lib.optional saneSupport            pkgs.saneBackends
+  ++ lib.optional gsmSupport             pkgs.gsm
+  ++ lib.optional gphoto2Support         pkgs.libgphoto2
+  ++ lib.optional ldapSupport            pkgs.openldap
+  ++ lib.optional fontconfigSupport      pkgs.fontconfig
+  ++ lib.optional alsaSupport            pkgs.alsaLib
+  ++ lib.optional pulseaudioSupport      pkgs.libpulseaudio
+  ++ lib.optional xineramaSupport        pkgs.xorg.libXinerama
+  ++ lib.optionals gstreamerSupport      (with pkgs.gst_all; [ gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-ffmpeg ])
+  ++ lib.optionals gtkSupport    [ pkgs.gtk3 pkgs.gnome.glib ]
+  ++ lib.optionals openclSupport [ pkgs.opencl-headers pkgs.opencl-icd ]
+  ++ lib.optionals xmlSupport    [ pkgs.libxml2 pkgs.libxslt ]
+  ++ lib.optionals tlsSupport    [ pkgs.openssl pkgs.gnutls ]
+  ++ lib.optionals openglSupport [ pkgs.mesa pkgs.mesa_noglu.osmesa pkgs.libdrm ]
+  ++ (with pkgs.xorg; [
+    libX11  libXi libXcursor libXrandr libXrender libXxf86vm libXcomposite libXext
+  ])));
 
   # Wine locates a lot of libraries dynamically through dlopen().  Add
   # them to the RPATH so that the user doesn't have to set them in
   # LD_LIBRARY_PATH.
-  NIX_LDFLAGS = map
-    (path: "-rpath ${path}/lib")
-    ([ stdenv.cc.cc ] ++ nativeBuildInputs);
+  NIX_LDFLAGS = map (path: "-rpath " + path) (
+      map (x: "${lib.getLib x}/lib") ([ stdenv.cc.cc ] ++ buildInputs)
+      # libpulsecommon.so is linked but not found otherwise
+      ++ lib.optionals supportFlags.pulseaudioSupport (map (x: "${lib.getLib x}/lib/pulseaudio")
+          (toBuildInputs pkgArches (pkgs: [ pkgs.libpulseaudio ])))
+    );
 
   # Don't shrink the ELF RPATHs in order to keep the extra RPATH
   # elements specified above.
   dontPatchELF = true;
+
+  # Disable stripping to avoid breaking placeholder DLLs/EXEs.
+  # Symptoms of broken placeholders are: when the wineprefix is created
+  # drive_c/windows/system32 will only contain a few files instead of
+  # hundreds, there will be an error about winemenubuilder and MountMgr
+  # on startup of Wine, and the Drives tab in winecfg will show an error.
+  dontStrip = true;
 
   ## FIXME
   # Add capability to ignore known failing tests
@@ -46,6 +88,10 @@ stdenv.mkDerivation ((lib.optionalAttrs (! isNull buildScript) {
     ${lib.strings.concatStringsSep "\n"
           ((map (links "share/wine/gecko") geckos)
         ++ (map (links "share/wine/mono")  monos))}
+  '' + lib.optionalString supportFlags.gstreamerSupport ''
+    wrapProgram "$out/bin/wine" \
+      --argv0 "" \
+      --prefix GST_PLUGIN_SYSTEM_PATH ":" "$GST_PLUGIN_SYSTEM_PATH"
   '';
   
   enableParallelBuilding = true;
@@ -56,6 +102,6 @@ stdenv.mkDerivation ((lib.optionalAttrs (! isNull buildScript) {
     homepage = "http://www.winehq.org/";
     license = "LGPL";
     description = "An Open Source implementation of the Windows API on top of X, OpenGL, and Unix";
-    maintainers = [stdenv.lib.maintainers.raskin];
+    maintainers = with stdenv.lib.maintainers; [ avnik raskin ];
   };
 })

@@ -3,18 +3,17 @@
   unicode3Support }:
 
 let
-  name = "rxvt-unicode";
-  version = "9.20";
-  n = "${name}-${version}";
+  pname = "rxvt-unicode";
+  version = "9.22";
 in
 
 stdenv.mkDerivation (rec {
 
-  name = "${n}${if perlSupport then "-with-perl" else ""}${if unicode3Support then "-with-unicode3" else ""}";
+  name = "${pname}${if perlSupport then "-with-perl" else ""}${if unicode3Support then "-with-unicode3" else ""}-${version}";
 
   src = fetchurl {
     url = "http://dist.schmorp.de/rxvt-unicode/Attic/rxvt-unicode-${version}.tar.bz2";
-    sha256 = "e73e13fe64b59fd3c8e6e20c00f149d388741f141b8155e4700d3ed40aa94b4e";
+    sha256 = "1pddjn5ynblwfrdmskylrsxb9vfnk3w4jdnq2l8xn2pspkljhip9";
   };
 
   buildInputs =
@@ -36,7 +35,7 @@ stdenv.mkDerivation (rec {
       mkdir -p $terminfo/share/terminfo
       configureFlags="--with-terminfo=$terminfo/share/terminfo --enable-256-color ${if perlSupport then "--enable-perl" else "--disable-perl"} ${if unicode3Support then "--enable-unicode3" else "--disable-unicode3"}";
       export TERMINFO=$terminfo/share/terminfo # without this the terminfo won't be compiled by tic, see man tic
-      NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE -I${freetype}/include/freetype2"
+      NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE -I${freetype.dev}/include/freetype2"
       NIX_LDFLAGS="$NIX_LDFLAGS -lfontconfig -lXrender "
     ''
     # make urxvt find its perl file lib/perl5/site_perl is added to PERL5LIB automatically

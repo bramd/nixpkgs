@@ -1,53 +1,75 @@
-{ stdenv, fetchurl, pkgconfig, libxml2, gnutls, devicemapper, perl, python
-, iproute, iptables, readline, lvm2, utillinux, udev, libpciaccess, gettext
-, libtasn1, ebtables, libgcrypt, yajl, makeWrapper, pmutils, libcap_ng
-, dnsmasq, libnl, libpcap, libxslt, xhtml1
-, pythonPackages, perlPackages
+{ stdenv, fetchurl, fetchpatch
+, pkgconfig, makeWrapper
+, libxml2, gnutls, devicemapper, perl, python
+, iproute, iptables, readline, lvm2, utillinux, systemd, libpciaccess, gettext
+, libtasn1, ebtables, libgcrypt, yajl, pmutils, libcap_ng
+, dnsmasq, libnl, libpcap, libxslt, xhtml1, numad, numactl, perlPackages
+, curl, libiconv, gmp, xen, zfs
 }:
-
-let version = "1.2.18"; in
-
-assert version == pythonPackages.libvirt.version;
-
+# if you update, also bump pythonPackages.libvirt or it will break
 stdenv.mkDerivation rec {
   name = "libvirt-${version}";
+  version = "2.0.0";
 
   src = fetchurl {
-    url = "http://libvirt.org/sources/${name}.tar.gz";
-    sha256 = "1pkaxcg77izi1yzjc0wjav985dr11bx2hvcqxlgx5kjcmwcgz9fm";
+    url = "http://libvirt.org/sources/${name}.tar.xz";
+    sha256 = "1jwszhpjn09zkqji8w1x97rw0wqcl71ll2y6vp056fb1bvshms8h";
   };
 
+  patches = [ ./build-on-bsd.patch ];
+
+  nativeBuildInputs = [ makeWrapper pkgconfig ];
   buildInputs = [
-    pkgconfig libxml2 gnutls devicemapper perl python readline lvm2
-    utillinux udev libpciaccess gettext libtasn1 libgcrypt yajl makeWrapper
-    libcap_ng libnl libxslt xhtml1 perlPackages.XMLXPath
+    libxml2 gnutls perl python readline
+    gettext libtasn1 libgcrypt yajl
+    libxslt xhtml1 perlPackages.XMLXPath curl libpcap
+  ] ++ stdenv.lib.optionals stdenv.isLinux [
+    libpciaccess devicemapper lvm2 utillinux systemd libcap_ng
+    libnl numad numactl xen zfs
+  ] ++ stdenv.lib.optionals stdenv.isDarwin [
+     libiconv gmp
   ];
 
-  preConfigure = ''
-    PATH=${iproute}/sbin:${iptables}/sbin:${ebtables}/sbin:${lvm2}/sbin:${udev}/sbin:${dnsmasq}/bin:$PATH
+  preConfigure = stdenv.lib.optionalString stdenv.isLinux ''
+    PATH=${iproute}/sbin:${iptables}/sbin:${ebtables}/sbin:${lvm2}/sbin:${systemd}/bin:$PATH
+    substituteInPlace configure \
+      --replace 'as_dummy="/bin:/usr/bin:/usr/sbin"' 'as_dummy="${numad}/bin"'
+  '' + ''
+    PATH=${dnsmasq}/bin:$PATH
     patchShebangs . # fixes /usr/bin/python references
   '';
 
   configureFlags = [
     "--localstatedir=/var"
-    "--sysconfdir=/etc"
-    "--with-init-script=redhat"
+    "--sysconfdir=/var/lib"
+    "--with-libpcap"
+    "--with-vmware"
+    "--with-vbox"
+    "--with-test"
+    "--with-esx"
+    "--with-remote"
+  ] ++ stdenv.lib.optionals stdenv.isLinux [
+    "--with-numad"
     "--with-macvtap"
     "--with-virtualport"
-    "--with-libpcap"
+    "--with-init-script=redhat"
+    "--with-storage-zfs"
+  ] ++ stdenv.lib.optionals stdenv.isDarwin [
+    "--with-init-script=none"
   ];
 
   installFlags = [
     "localstatedir=$(TMPDIR)/var"
-    "sysconfdir=$(out)/etc"
+    "sysconfdir=$(out)/var/lib"
   ];
 
   postInstall = ''
     sed -i 's/ON_SHUTDOWN=suspend/ON_SHUTDOWN=''${ON_SHUTDOWN:-suspend}/' $out/libexec/libvirt-guests.sh
     substituteInPlace $out/libexec/libvirt-guests.sh \
       --replace "$out/bin" "${gettext}/bin"
+  '' + stdenv.lib.optionalString stdenv.isLinux ''
     wrapProgram $out/sbin/libvirtd \
-      --prefix PATH : ${iptables}/sbin:${iproute}/sbin:${pmutils}/bin
+      --prefix PATH : ${iptables}/sbin:${iproute}/sbin:${pmutils}/bin:${numad}/bin:${numactl}/bin
   '';
 
   enableParallelBuilding = true;
@@ -62,6 +84,7 @@ stdenv.mkDerivation rec {
       versions of Linux (and other OSes)
     '';
     license = licenses.lgpl2Plus;
-    platforms = platforms.linux;
+    platforms = platforms.unix;
+    maintainers = with maintainers; [ fpletz ];
   };
 }

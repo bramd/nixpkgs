@@ -63,14 +63,17 @@ let version = "4.9.3";
 
     enableParallelBuilding = true;
 
-    patches = [ ]
+    patches =
+      [ ../use-source-date-epoch.patch ]
       ++ optionals enableParallelBuilding [ ../parallel-bconfig.patch ./parallel-strsignal.patch ]
       ++ optional (cross != null) ../libstdc++-target.patch
       ++ optional noSysDirs ../no-sys-dirs.patch
       # The GNAT Makefiles did not pay attention to CFLAGS_FOR_TARGET for its
       # target libraries and tools.
       ++ optional langAda ../gnat-cflags.patch
-      ++ optional langFortran ../gfortran-driving.patch;
+      ++ optional langFortran ../gfortran-driving.patch
+      # The NXConstStr.patch can be removed at 4.9.4
+      ++ optional stdenv.isDarwin ../gfortran-darwin-NXConstStr.patch;
 
     javaEcj = fetchurl {
       # The `$(top_srcdir)/ecj.jar' file is automatically picked up at
@@ -163,8 +166,8 @@ let version = "4.9.3";
           " --disable-libatomic " +  # libatomic requires libc
           " --disable-decimal-float" # libdecnumber requires libc
           else
-          (if crossDarwin then " --with-sysroot=${libcCross}/share/sysroot"
-           else                " --with-headers=${libcCross}/include") +
+          (if crossDarwin then " --with-sysroot=${libcCross.out}/share/sysroot"
+           else                " --with-headers=${libcCross.dev}/include") +
           # Ensure that -print-prog-name is able to find the correct programs.
           (stdenv.lib.optionalString (crossMingw || crossDarwin) (
             " --with-as=${binutilsCross}/bin/${cross.config}-as" +
@@ -196,7 +199,7 @@ let version = "4.9.3";
     stageNameAddon = if crossStageStatic then "-stage-static" else "-stage-final";
     crossNameAddon = if cross != null then "-${cross.config}" + stageNameAddon else "";
 
-  bootstrap = cross == null && !stdenv.isArm && !stdenv.isMips;
+  bootstrap = cross == null && !stdenv.isDarwin;
 
 in
 
@@ -208,14 +211,19 @@ stdenv.mkDerivation ({
 
   builder = ../builder.sh;
 
-  outputs = [ "out" "info" ];
-
   src = fetchurl {
     url = "mirror://gnu/gcc/gcc-${version}/gcc-${version}.tar.bz2";
     sha256 = "0zmnm00d2a1hsd41g34bhvxzvxisa2l584q3p447bd91lfjv4ci3";
   };
 
   inherit patches;
+
+  outputs = if langJava || langGo then ["out" "man" "info"]
+    else [ "out" "lib" "man" "info" ];
+  setOutputFlags = false;
+  NIX_NO_SELF_RPATH = true;
+
+  libc_dev = stdenv.cc.libc_dev;
 
   postPatch =
     if (stdenv.isGNU
@@ -236,7 +244,7 @@ stdenv.mkDerivation ({
           ++ stdenv.lib.optional (libpthread != null) libpthread;
         extraCPPSpec =
           concatStrings (intersperse " "
-                          (map (x: "-I${x}/include") extraCPPDeps));
+                          (map (x: "-I${x.dev or x}/include") extraCPPDeps));
         extraLibSpec =
           if libpthreadCross != null
           then "-L${libpthreadCross}/lib ${libpthreadCross.TARGET_LDFLAGS}"
@@ -250,9 +258,9 @@ stdenv.mkDerivation ({
            sed -i "${gnu_h}" \
                -es'|LIB_SPEC *"\(.*\)$|LIB_SPEC "${extraLibSpec} \1|g'
 
-           echo "setting \`NATIVE_SYSTEM_HEADER_DIR' and \`STANDARD_INCLUDE_DIR' to \`${libc}/include'..."
+           echo "setting \`NATIVE_SYSTEM_HEADER_DIR' and \`STANDARD_INCLUDE_DIR' to \`${libc.dev}/include'..."
            sed -i "${gnu_h}" \
-               -es'|#define STANDARD_INCLUDE_DIR.*$|#define STANDARD_INCLUDE_DIR "${libc}/include"|g'
+               -es'|#define STANDARD_INCLUDE_DIR.*$|#define STANDARD_INCLUDE_DIR "${libc.dev}/include"|g'
         ''
     else if cross != null || stdenv.cc.libc != null then
       # On NixOS, use the right path to the dynamic linker instead of
@@ -266,7 +274,7 @@ stdenv.mkDerivation ({
              grep -q LIBC_DYNAMIC_LINKER "$header" || continue
              echo "  fixing \`$header'..."
              sed -i "$header" \
-                 -e 's|define[[:blank:]]*\([UCG]\+\)LIBC_DYNAMIC_LINKER\([0-9]*\)[[:blank:]]"\([^\"]\+\)"$|define \1LIBC_DYNAMIC_LINKER\2 "${libc}\3"|g'
+                 -e 's|define[[:blank:]]*\([UCG]\+\)LIBC_DYNAMIC_LINKER\([0-9]*\)[[:blank:]]"\([^\"]\+\)"$|define \1LIBC_DYNAMIC_LINKER\2 "${libc.out}\3"|g'
            done
         ''
     else null;
@@ -293,23 +301,17 @@ stdenv.mkDerivation ({
     ++ (optional stdenv.isDarwin gnused)
     ;
 
-  NIX_LDFLAGS = stdenv.lib.optionalString  stdenv.isSunOS "-lm -ldl";
-
   preConfigure = stdenv.lib.optionalString (stdenv.isSunOS && stdenv.is64bit) ''
+    sed -i -e "s/-lrt//g" libstdc++-v3/configure
     export NIX_LDFLAGS=`echo $NIX_LDFLAGS | sed -e s~$prefix/lib~$prefix/lib/amd64~g`
     export LDFLAGS_FOR_TARGET="-Wl,-rpath,$prefix/lib/amd64 $LDFLAGS_FOR_TARGET"
     export CXXFLAGS_FOR_TARGET="-Wl,-rpath,$prefix/lib/amd64 $CXXFLAGS_FOR_TARGET"
     export CFLAGS_FOR_TARGET="-Wl,-rpath,$prefix/lib/amd64 $CFLAGS_FOR_TARGET"
-  '' + stdenv.lib.optionalString stdenv.isDarwin ''
-    if SDKROOT=$(/usr/bin/xcrun --show-sdk-path); then
-      configureFlagsArray+=(--with-native-system-header-dir=$SDKROOT/usr/include)
-      makeFlagsArray+=( \
-       CFLAGS_FOR_BUILD=-F$SDKROOT/System/Library/Frameworks \
-       CFLAGS_FOR_TARGET=-F$SDKROOT/System/Library/Frameworks \
-       FLAGS_FOR_TARGET=-F$SDKROOT/System/Library/Frameworks \
-      )
-    fi
-  '';
+  ''
+  + stdenv.lib.optionalString (langJava || langGo) ''
+    export lib=$out;
+  ''
+  ;
 
   dontDisableStatic = true;
 
@@ -334,8 +336,8 @@ stdenv.mkDerivation ({
       else ""}
     ${if javaAwtGtk then "--enable-java-awt=gtk" else ""}
     ${if langJava && javaAntlr != null then "--with-antlr-jar=${javaAntlr}" else ""}
-    --with-gmp=${gmp}
-    --with-mpfr=${mpfr}
+    --with-gmp=${gmp.dev}
+    --with-mpfr=${mpfr.dev}
     --with-mpc=${libmpc}
     ${if libelf != null then "--with-libelf=${libelf}" else ""}
     --disable-libstdcxx-pch
@@ -358,7 +360,7 @@ stdenv.mkDerivation ({
       )
     }
     ${if (stdenv ? glibc && cross == null)
-      then " --with-native-system-header-dir=${stdenv.glibc}/include"
+      then " --with-native-system-header-dir=${stdenv.glibc.dev}/include"
       else ""}
     ${if langAda then " --enable-libada" else ""}
     ${if cross == null && stdenv.isi686 then "--with-arch=i686" else ""}
@@ -411,6 +413,7 @@ stdenv.mkDerivation ({
       ${if langJava && javaAntlr != null then "--with-antlr-jar=${javaAntlr.crossDrv}" else ""}
       --with-gmp=${gmp.crossDrv}
       --with-mpfr=${mpfr.crossDrv}
+      --with-mpc=${libmpc.crossDrv}
       --disable-libstdcxx-pch
       --without-included-gettext
       --with-system-zlib
@@ -456,7 +459,7 @@ stdenv.mkDerivation ({
   # Likewise, the LTO code doesn't find zlib.
 
   CPATH = concatStrings
-            (intersperse ":" (map (x: x + "/include")
+            (intersperse ":" (map (x: "${x.dev or x}/include")
                                   (optionals (zlib != null) [ zlib ]
                                    ++ optionals langJava [ boehmgc ]
                                    ++ optionals javaAwtGtk xlibs
@@ -478,15 +481,28 @@ stdenv.mkDerivation ({
                                           ++ optional (libpthread != null) libpthread)));
 
   EXTRA_TARGET_CFLAGS =
-    if cross != null && libcCross != null
-    then "-idirafter ${libcCross}/include"
+    if cross != null && libcCross != null then [
+        "-idirafter ${libcCross.dev}/include"
+      ]
+      ++ optionals (! crossStageStatic) [
+        "-B${libcCross.out}/lib"
+      ]
     else null;
 
   EXTRA_TARGET_LDFLAGS =
-    if cross != null && libcCross != null
-    then "-B${libcCross}/lib -Wl,-L${libcCross}/lib" +
-         (optionalString (libpthreadCross != null)
-           " -L${libpthreadCross}/lib -Wl,${libpthreadCross.TARGET_LDFLAGS}")
+    if cross != null && libcCross != null then [
+        "-Wl,-L${libcCross.out}/lib"
+      ]
+      ++ (if crossStageStatic then [
+        "-B${libcCross.out}/lib"
+      ] else [
+        "-Wl,-rpath,${libcCross.out}/lib"
+        "-Wl,-rpath-link,${libcCross.out}/lib"
+      ])
+      ++ optionals (libpthreadCross != null) [
+        "-L${libpthreadCross}/lib"
+        "-Wl,${libpthreadCross.TARGET_LDFLAGS}"
+      ]
     else null;
 
   passthru =
@@ -511,13 +527,14 @@ stdenv.mkDerivation ({
       compiler used in the GNU system including the GNU/Linux variant.
     '';
 
-    maintainers = with stdenv.lib.maintainers; [ viric simons ];
+    maintainers = with stdenv.lib.maintainers; [ viric peti ];
 
     # gnatboot is not available out of linux platforms, so we disable the darwin build
     # for the gnat (ada compiler).
     platforms =
       stdenv.lib.platforms.linux ++
       stdenv.lib.platforms.freebsd ++
+      stdenv.lib.platforms.illumos ++
       optionals (langAda == false) stdenv.lib.platforms.darwin;
   };
 }
@@ -531,4 +548,10 @@ stdenv.mkDerivation ({
 // optionalAttrs (!stripped || cross != null) { dontStrip = true; NIX_STRIP_DEBUG = 0; }
 
 // optionalAttrs (enableMultilib) { dontMoveLib64 = true; }
+
+// optionalAttrs (langJava) {
+     postFixup = ''
+       target="$(echo "$out/libexec/gcc"/*/*/ecj*)"
+       patchelf --set-rpath "$(patchelf --print-rpath "$target"):$out/lib" "$target"
+     '';}
 )

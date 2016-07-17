@@ -1,4 +1,6 @@
-{ stdenv, fetchurl, gettext, apr, aprutil, subversion, db, kdelibs, expat }:
+{ stdenv, fetchurl, automoc4, cmake, gettext, perl, pkgconfig
+, apr, aprutil, subversion, db, kdelibs, expat
+}:
 
 # the homepage mentions this is the final release.
 # from now on, kdesvn will be part of the official kde software distribution
@@ -11,12 +13,12 @@ stdenv.mkDerivation rec {
   };
 
   prePatch = ''
-    sed -i -e "s|/usr|${subversion}|g" src/svnqt/cmakemodules/FindSubversion.cmake
+    sed -i -e "s|/usr|${subversion.dev}|g" src/svnqt/cmakemodules/FindSubversion.cmake
   '';
 
   buildInputs = [ apr aprutil subversion db kdelibs expat ];
 
-  nativeBuildInputs = [ gettext ];
+  nativeBuildInputs = [ automoc4 cmake gettext perl pkgconfig ];
 
   meta = {
     description = "KDE SVN front-end";

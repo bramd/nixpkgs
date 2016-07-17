@@ -1,6 +1,9 @@
-{ stdenv, fetchFromGitHub, libaio, zlib }:
+{ stdenv, fetchFromGitHub, libaio, python, zlib }:
 
-let version = "2.2.7"; in
+let
+  version = "2.12";
+  sha256 = "1m0fx0x1v2375vyxhd2i12b9w1qy4yh75f6qhwlcr78himcsmpp9";
+in
 
 stdenv.mkDerivation rec {
   name = "fio-${version}";
@@ -9,25 +12,21 @@ stdenv.mkDerivation rec {
     owner = "axboe";
     repo = "fio";
     rev = "fio-${version}";
-    sha256 = "02k528n97xp1ly3d0mdn0lgwqlpn49b644696m75kcr0hn07382v";
+    inherit sha256;
   };
 
-  buildInputs = [ libaio zlib ];
+  buildInputs = [ libaio python zlib ];
 
   enableParallelBuilding = true;
 
-  configurePhase = ''
+  postPatch = ''
     substituteInPlace tools/plot/fio2gnuplot --replace /usr/share/fio $out/share/fio
-    ./configure
   '';
 
-  installPhase = ''
-    make install prefix=$out
-  '';
-
-  meta = {
+  meta = with stdenv.lib; {
     homepage = "http://git.kernel.dk/?p=fio.git;a=summary";
     description = "Flexible IO Tester - an IO benchmark tool";
-    license = stdenv.lib.licenses.gpl2;
+    license = licenses.gpl2;
+    platforms = platforms.unix;
   };
 }

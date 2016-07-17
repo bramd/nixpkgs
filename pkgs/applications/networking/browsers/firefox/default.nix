@@ -1,10 +1,11 @@
 { lib, stdenv, fetchurl, pkgconfig, gtk, gtk3, pango, perl, python, zip, libIDL
-, libjpeg, zlib, dbus, dbus_glib, bzip2, xlibs
+, libjpeg, zlib, dbus, dbus_glib, bzip2, xorg
 , freetype, fontconfig, file, alsaLib, nspr, nss, libnotify
 , yasm, mesa, sqlite, unzip, makeWrapper, pysqlite
 , hunspell, libevent, libstartup_notification, libvpx
 , cairo, gstreamer, gst_plugins_base, icu, libpng, jemalloc, libpulseaudio
-, enableGTK3 ? false, fetchpatch
+, autoconf213, which
+, enableGTK3 ? false
 , debugBuild ? false
 , # If you want the resulting program to call itself "Firefox" instead
   # of "Shiretoko" or whatever, enable this option.  However, those
@@ -18,37 +19,31 @@ assert stdenv.cc ? libc && stdenv.cc.libc != null;
 
 let
 
-common = { pname, version, sha1 }: stdenv.mkDerivation rec {
-  name = "${pname}-${version}";
+common = { pname, version, sha512 }: stdenv.mkDerivation rec {
+  name = "${pname}-unwrapped-${version}";
 
   src = fetchurl {
-    url = "http://ftp.mozilla.org/pub/mozilla.org/firefox/releases/${version}/source/firefox-${version}.source.tar.bz2";
-    inherit sha1;
+    url =
+      let ext = if lib.versionAtLeast version "41.0" then "xz" else "bz2";
+      in "mirror://mozilla/firefox/releases/${version}/source/firefox-${version}.source.tar.${ext}";
+    inherit sha512;
   };
-
-  patches = if !enableGTK3 then null else [(fetchpatch {
-    name = "crash_OTMC+GTK3.patch";
-    # backported from 40.1
-    # https://bugzilla.mozilla.org/show_bug.cgi?id=1127752
-    # https://bugzilla.redhat.com/show_bug.cgi?id=1256875
-    url = "http://pkgs.fedoraproject.org/cgit/firefox.git/plain/"
-      + "mozilla-1127752.patch?id=571fefe2c8f741b92c865e9122af56f6258b3fc1";
-    sha256 = "04yq4lcq8ln2fmknz4c0zah77wxqp2mcgr8pjx860dmcmzvyi3p5";
-  })];
-  patchFlags = "-p2";
 
   buildInputs =
     [ pkgconfig gtk perl zip libIDL libjpeg zlib bzip2
-      python dbus dbus_glib pango freetype fontconfig xlibs.libXi
-      xlibs.libX11 xlibs.libXrender xlibs.libXft xlibs.libXt file
-      alsaLib nspr nss libnotify xlibs.pixman yasm mesa
-      xlibs.libXScrnSaver xlibs.scrnsaverproto pysqlite
-      xlibs.libXext xlibs.xextproto sqlite unzip makeWrapper
+      python dbus dbus_glib pango freetype fontconfig xorg.libXi
+      xorg.libX11 xorg.libXrender xorg.libXft xorg.libXt file
+      alsaLib nspr nss libnotify xorg.pixman yasm mesa
+      xorg.libXScrnSaver xorg.scrnsaverproto pysqlite
+      xorg.libXext xorg.xextproto sqlite unzip makeWrapper
       hunspell libevent libstartup_notification libvpx /* cairo */
-      gstreamer gst_plugins_base icu libpng jemalloc
+      icu libpng jemalloc
       libpulseaudio # only headers are needed
     ]
-    ++ lib.optional enableGTK3 gtk3;
+    ++ lib.optional enableGTK3 gtk3
+    ++ lib.optionals (!passthru.ffmpegSupport) [ gstreamer gst_plugins_base ];
+
+  nativeBuildInputs = [autoconf213 which];
 
   configureFlags =
     [ "--enable-application=browser"
@@ -67,7 +62,6 @@ common = { pname, version, sha1 }: stdenv.mkDerivation rec {
       "--enable-system-pixman"
       "--enable-system-sqlite"
       #"--enable-system-cairo"
-      "--enable-gstreamer"
       "--enable-startup-notification"
       "--enable-content-sandbox"            # available since 26.0, but not much info available
       "--disable-content-sandbox-reporter"  # keeping disabled for now
@@ -77,11 +71,13 @@ common = { pname, version, sha1 }: stdenv.mkDerivation rec {
       "--disable-installer"
       "--disable-updater"
       "--enable-jemalloc"
+      "--disable-gconf"
+      "--enable-default-toolkit=cairo-gtk2"
     ]
     ++ lib.optional enableGTK3 "--enable-default-toolkit=cairo-gtk3"
     ++ (if debugBuild then [ "--enable-debug" "--enable-profiling" ]
                       else [ "--disable-debug" "--enable-release"
-                             "--enable-optimize${lib.optionalString (stdenv.system == "i686-linux") "=-O1"}"
+                             "--enable-optimize"
                              "--enable-strip" ])
     ++ lib.optional enableOfficialBranding "--enable-official-branding";
 
@@ -89,9 +85,9 @@ common = { pname, version, sha1 }: stdenv.mkDerivation rec {
 
   preConfigure =
     ''
+      configureScript="$(realpath ./configure)"
       mkdir ../objdir
       cd ../objdir
-      configureScript=../mozilla-*/configure
     '';
 
   preInstall =
@@ -103,7 +99,7 @@ common = { pname, version, sha1 }: stdenv.mkDerivation rec {
   postInstall =
     ''
       # For grsecurity kernels
-      paxmark m $out/lib/${name}/{firefox,firefox-bin,plugin-container}
+      paxmark m $out/lib/firefox-[0-9]*/{firefox,firefox-bin,plugin-container}
 
       # Remove SDK cruft. FIXME: move to a separate output?
       rm -rf $out/share/idl $out/include $out/lib/firefox-devel-*
@@ -130,21 +126,23 @@ common = { pname, version, sha1 }: stdenv.mkDerivation rec {
   passthru = {
     inherit gtk nspr version;
     isFirefox3Like = true;
+    browserName = "firefox";
+    ffmpegSupport = lib.versionAtLeast version "46.0";
   };
 };
 
 in {
 
-  firefox = common {
+  firefox-unwrapped = common {
     pname = "firefox";
-    version = "40.0.3";
-    sha1 = "6ddda46bd6540ab3ae932fbb5ffec8e9a85cab13";
+    version = "47.0.1";
+    sha512 = "f79c53b9acf0d96917aa11e57092a4e540ce694471123ef8e616e15864195fab7b37235ebd37367e4d0cc8e594a881a30c973075cc97346ef6f88d92944c0312";
   };
 
-  firefox-esr = common {
+  firefox-esr-unwrapped = common {
     pname = "firefox-esr";
-    version = "38.2.1esr";
-    sha1 = "c596174e7273be5079bf55aecde33ec191d99538";
+    version = "45.2.0esr";
+    sha512 = "fd67353cff9400080a311af92562b1ed26d20ca2229e32e8c8289b364ebe27fd501eed78c72b614e0501c3841ae9b17f2102158fbeef5083bee8c12d952660e6";
   };
 
 }

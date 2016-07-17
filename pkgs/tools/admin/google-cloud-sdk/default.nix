@@ -1,13 +1,22 @@
 {stdenv, fetchurl, python27, python27Packages, makeWrapper}:
 
-stdenv.mkDerivation rec {
-  version = "0.9.74";
-  name = "google-cloud-sdk-${version}";
+with python27Packages;
 
-  src = fetchurl {
-    url = "https://dl.google.com/dl/cloudsdk/release/packages/google-cloud-sdk-coretools-linux-static-20150817103450.tar.gz";
-    sha256 = "0qdry40xk23c6dvr6qzqn23bg8yfflm1m00gw1mqnpr4m1425vfg";
-  };
+stdenv.mkDerivation rec {
+  name = "google-cloud-sdk-${version}";
+  version = "113.0.0";
+
+  src =
+    if stdenv.system == "i686-linux" then
+      fetchurl {
+        url = "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/${name}-linux-x86.tar.gz";
+        sha256 = "0v90am3zb77c1d4qbm8pn3mn4xc9xbcw48clca2v5mr5g48aq221";
+      }
+    else
+      fetchurl {
+        url = "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/${name}-linux-x86_64.tar.gz";
+        sha256 = "1fjc80i1szzppib5pplw3vxh83vzkimlfcpg82vakyhvbjndnqyr";
+      };
 
   buildInputs = [python27 makeWrapper];
 
@@ -23,7 +32,7 @@ stdenv.mkDerivation rec {
         wrapper="$out/bin/$program"
         makeWrapper "$programPath" "$wrapper" \
             --set CLOUDSDK_PYTHON "${python27}/bin/python" \
-            --prefix PYTHONPATH : "$(toPythonPath ${python27Packages.crcmod})"
+            --prefix PYTHONPATH : "$(toPythonPath ${cffi}):$(toPythonPath ${cryptography}):$(toPythonPath ${pyopenssl}):$(toPythonPath ${crcmod})"
     done
 
     # install man pages
@@ -38,14 +47,14 @@ stdenv.mkDerivation rec {
     rm -r $out/google-cloud-sdk/platform/gsutil/third_party/crcmod
   '';
 
-  meta = {
+  meta = with stdenv.lib; {
     description = "Tools for the google cloud platform";
     longDescription = "The Google Cloud SDK. This package has the programs: gcloud, gsutil, and bq";
     version = version;
     # This package contains vendored dependencies. All have free licenses.
-    license = stdenv.lib.licenses.free;
+    license = licenses.free;
     homepage = "https://cloud.google.com/sdk/";
-    maintainers = with stdenv.lib.maintainers; [stephenmw];
-    platforms = stdenv.lib.platforms.all;
+    maintainers = with maintainers; [stephenmw zimbatm];
+    platforms = platforms.linux;
   };
 }

@@ -1,15 +1,21 @@
-{stdenv, fetchurl}:
+{stdenv, fetchurl, autoreconfHook}:
 
 let
-  version = "5.5.2";
+  version = "5.6";
 in
 
 stdenv.mkDerivation {
   name = "polyml-${version}";
 
+  prePatch = stdenv.lib.optionalString stdenv.isDarwin ''
+    substituteInPlace configure.ac --replace stdc++ c++
+  '';
+
+  buildInputs = stdenv.lib.optional stdenv.isDarwin autoreconfHook;
+
   src = fetchurl {
     url = "mirror://sourceforge/polyml/polyml.${version}.tar.gz";
-    sha256 = "10m680qdad6bd50bav9xjsgmsxw8yxg55vr7grbg0gvykzl2pzbk";
+    sha256 = "05d6l2a5m9jf32a8kahwg2p2ph4x9rjf1nsl83331q3gwn5bkmr0";
   };
 
   meta = {

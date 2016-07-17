@@ -1,33 +1,40 @@
-{ stdenv, fetchurl, git, gnupg, makeWrapper, pass, qt5 }:
+{ stdenv, fetchzip, git, gnupg, makeQtWrapper, pass, qtbase, qtsvg, qttools, qmakeHook }:
 
 stdenv.mkDerivation rec {
   name = "qtpass-${version}";
-  version = "1.0.1";
+  version = "1.1.3";
 
-  src = fetchurl {
+  src = fetchzip {
     url = "https://github.com/IJHack/qtpass/archive/v${version}.tar.gz";
-    sha256 = "1mmncvamvwr3hizc1jgpb5kscl9idmrfd2785jhwi87q11wjrwxz";
+    sha256 = "114rqvd2jl98c75zmhdwfmp44kxa4v459naiivb4w020d60ziq7l";
   };
 
-  buildInputs = [ git gnupg makeWrapper pass qt5.base ];
+  buildInputs = [ git gnupg pass qtbase qtsvg qttools ];
 
-  configurePhase = "qmake CONFIG+=release PREFIX=$out DESTDIR=$out";
+  nativeBuildInputs = [ makeQtWrapper qmakeHook ];
+
+  preConfigure = ''
+    qmakeFlags="$qmakeFlags CONFIG+=release DESTDIR=$out"
+  '';
 
   installPhase = ''
     mkdir $out/bin
     mv $out/qtpass $out/bin
+    install -D {,$out/share/applications/}qtpass.desktop
+    install -D artwork/icon.svg $out/share/icons/hicolor/scalable/apps/qtpass-icon.svg
+    runHook postInstall
   '';
 
   postInstall = ''
-    wrapProgram $out/bin/qtpass \
-        --suffix PATH : ${git}/bin \
-        --suffix PATH : ${gnupg}/bin \
-        --suffix PATH : ${pass}/bin
+    wrapQtProgram $out/bin/qtpass \
+      --suffix PATH : ${git}/bin \
+      --suffix PATH : ${gnupg}/bin \
+      --suffix PATH : ${pass}/bin
   '';
 
   meta = with stdenv.lib; {
     description = "A multi-platform GUI for pass, the standard unix password manager";
-    homepage = https://github.com/IJHack/qtpass;
+    homepage = https://qtpass.org;
     license = licenses.gpl3;
     maintainers = [ maintainers.hrdinka ];
     platforms = platforms.all;

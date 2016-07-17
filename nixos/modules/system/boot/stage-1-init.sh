@@ -3,6 +3,7 @@
 targetRoot=/mnt-root
 console=tty1
 
+extraUtils="@extraUtils@"
 export LD_LIBRARY_PATH=@extraUtils@/lib
 export PATH=@extraUtils@/bin
 ln -s @extraUtils@/bin /bin
@@ -70,6 +71,25 @@ mount -t sysfs sysfs /sys
 mount -t devtmpfs -o "size=@devSize@" devtmpfs /dev
 mkdir -p /run
 mount -t tmpfs -o "mode=0755,size=@runSize@" tmpfs /run
+mkdir /dev/pts
+mount -t devpts devpts /dev/pts
+
+# Log the script output to /dev/kmsg or /run/log/stage-1-init.log.
+mkdir -p /tmp
+mkfifo /tmp/stage-1-init.log.fifo
+logOutFd=8 && logErrFd=9
+eval "exec $logOutFd>&1 $logErrFd>&2"
+if test -w /dev/kmsg; then
+    tee -i < /tmp/stage-1-init.log.fifo /proc/self/fd/"$logOutFd" | while read -r line; do
+        if test -n "$line"; then
+            echo "<7>stage-1-init: $line" > /dev/kmsg
+        fi
+    done &
+else
+    mkdir -p /run/log
+    tee -i < /tmp/stage-1-init.log.fifo /run/log/stage-1-init.log &
+fi
+exec > /tmp/stage-1-init.log.fifo 2>&1
 
 
 # Process the kernel command line.
@@ -135,18 +155,19 @@ ln -s @modulesClosure@/lib/modules /lib/modules
 echo @extraUtils@/bin/modprobe > /proc/sys/kernel/modprobe
 for i in @kernelModules@; do
     echo "loading module $(basename $i)..."
-    modprobe $i || true
+    modprobe $i
 done
 
 
 # Create device nodes in /dev.
+@preDeviceCommands@
 echo "running udev..."
 mkdir -p /etc/udev
 ln -sfn @udevRules@ /etc/udev/rules.d
 mkdir -p /dev/.mdadm
 systemd-udevd --daemon
 udevadm trigger --action=add
-udevadm settle || true
+udevadm settle
 
 
 # Load boot-time keymap before any LVM/LUKS initialization
@@ -290,9 +311,22 @@ mountFS() {
         if [ -z "$fsType" ]; then fsType=auto; fi
     fi
 
-    echo "$device /mnt-root$mountPoint $fsType $options" >> /etc/fstab
+    # Filter out x- options, which busybox doesn't do yet.
+    local optionsFiltered="$(IFS=,; for i in $options; do if [ "${i:0:2}" != "x-" ]; then echo -n $i,; fi; done)"
+
+    echo "$device /mnt-root$mountPoint $fsType $optionsFiltered" >> /etc/fstab
 
     checkFS "$device" "$fsType"
+
+    # Optionally resize the filesystem.
+    case $options in
+        *x-nixos.autoresize*)
+            if [ "$fsType" = ext2 -o "$fsType" = ext3 -o "$fsType" = ext4 ]; then
+                echo "resizing $device..."
+                resize2fs "$device"
+            fi
+            ;;
+    esac
 
     # Create backing directories for unionfs-fuse.
     if [ "$fsType" = unionfs-fuse ]; then
@@ -303,7 +337,7 @@ mountFS() {
 
     echo "mounting $device on $mountPoint..."
 
-    mkdir -p "/mnt-root$mountPoint" || true
+    mkdir -p "/mnt-root$mountPoint"
 
     # For CIFS mounts, retry a few times before giving up.
     local n=0
@@ -375,7 +409,7 @@ while read -u 3 mountPoint; do
 
     # Wait once more for the udev queue to empty, just in case it's
     # doing something with $device right now.
-    udevadm settle || true
+    udevadm settle
 
     mountFS "$device" "$mountPoint" "$options" "$fsType"
 done
@@ -388,9 +422,9 @@ exec 3>&-
 
 # Emit a udev rule for /dev/root to prevent systemd from complaining.
 if [ -e /mnt-root/iso ]; then
-    eval $(udevadm info --export --export-prefix=ROOT_ --device-id-of-file=/mnt-root/iso || true)
+    eval $(udevadm info --export --export-prefix=ROOT_ --device-id-of-file=/mnt-root/iso)
 else
-    eval $(udevadm info --export --export-prefix=ROOT_ --device-id-of-file=$targetRoot || true)
+    eval $(udevadm info --export --export-prefix=ROOT_ --device-id-of-file=$targetRoot)
 fi
 if [ "$ROOT_MAJOR" -a "$ROOT_MINOR" -a "$ROOT_MAJOR" != 0 ]; then
     mkdir -p /run/udev/rules.d
@@ -399,12 +433,27 @@ fi
 
 
 # Stop udevd.
-udevadm control --exit || true
+udevadm control --exit
+
+# Reset the logging file descriptors.
+# Do this just before pkill, which will kill the tee process.
+exec 1>&$logOutFd 2>&$logErrFd
+eval "exec $logOutFd>&- $logErrFd>&-"
 
 # Kill any remaining processes, just to be sure we're not taking any
 # with us into stage 2. But keep storage daemons like unionfs-fuse.
-pkill -9 -v -f '@'
-
+#
+# Storage daemons are distinguished by an @ in front of their command line:
+# https://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons/
+local pidsToKill="$(pgrep -v -f '^@')"
+for pid in $pidsToKill; do
+    # Make sure we don't kill kernel processes, see #15226 and:
+    # http://stackoverflow.com/questions/12213445/identifying-kernel-threads
+    readlink "/proc/$pid/exe" &> /dev/null || continue
+    # Try to avoid killing ourselves.
+    [ $pid -eq $$ ] && continue
+    kill -9 "$pid"
+done
 
 if test -n "$debug1mounts"; then fail; fi
 

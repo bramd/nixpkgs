@@ -2,7 +2,7 @@
 
 let
 
-  version = "2.0.5.0";
+  version = "2.0.5.3";
 
 in stdenv.mkDerivation rec {
 
@@ -10,7 +10,7 @@ in stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "http://www.skarnet.org/software/s6-portable-utils/${name}.tar.gz";
-    sha256 = "099c7isi5vynis4iaiz362rvr73w4rvjhv3c2f7ddxgfyvd2331l";
+    sha256 = "029fg9c37vwh9yagd69h8r192nrx4mfva8dwgpm1gxkdssrh3gi7";
   };
 
   dontDisableStatic = true;
@@ -20,7 +20,8 @@ in stdenv.mkDerivation rec {
     "--with-include=${skalibs}/include"
     "--with-lib=${skalibs}/lib"
     "--with-dynlib=${skalibs}/lib"
-  ];
+  ]
+  ++ (stdenv.lib.optional stdenv.isDarwin "--target=${stdenv.system}");
 
   meta = {
     homepage = http://www.skarnet.org/software/s6-portable-utils/;

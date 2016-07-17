@@ -1,24 +1,27 @@
-{ stdenv, fetchurl, pkgconfig, intltool, URI, glib, gtk, libxfce4ui, libxfce4util }:
+{ stdenv, fetchurl, pkgconfig, intltool, URI, glib, gtk, libxfce4ui, libxfce4util
+, hicolor_icon_theme }:
 
 stdenv.mkDerivation rec {
   p_name  = "exo";
   ver_maj = "0.10";
-  ver_min = "6";
+  ver_min = "7";
 
   src = fetchurl {
     url = "mirror://xfce/src/xfce/${p_name}/${ver_maj}/${name}.tar.bz2";
-    sha256 = "1cc0e5a432e050a5e5aa64d126b988f4440da4f27474aaf42a4d8e13651d0752";
+    sha256 = "521581481128af93e815f9690020998181f947ac9e9c2b232b1f144d76b1b35c";
   };
   name = "${p_name}-${ver_maj}.${ver_min}";
 
-  buildInputs = [ pkgconfig intltool URI glib gtk libxfce4ui libxfce4util ];
+  outputs = [ "dev" "out" "docdev" ];
+    # lib/xfce4/exo-1/exo-compose-mail-1 is a perl script :-/
 
-  preFixup = "rm $out/share/icons/hicolor/icon-theme.cache";
+  nativeBuildInputs = [ pkgconfig intltool ];
+  buildInputs = [ URI glib gtk libxfce4ui libxfce4util hicolor_icon_theme ];
 
-  meta = {
+  meta = with stdenv.lib; {
     homepage = "http://www.xfce.org/projects/${p_name}";
     description = "Application library for the Xfce desktop environment";
-    license = stdenv.lib.licenses.gpl2Plus;
-    platforms = stdenv.lib.platforms.linux;
+    license = licenses.gpl2Plus;
+    platforms = platforms.linux;
   };
 }

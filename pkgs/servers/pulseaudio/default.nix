@@ -1,6 +1,6 @@
 { lib, stdenv, fetchurl, pkgconfig, intltool, autoreconfHook
 , json_c, libsndfile, libtool
-, xlibs, libcap, alsaLib, glib
+, xorg, libcap, alsaLib, glib
 , avahi, libjack2, libasyncns, lirc, dbus
 , sbc, bluez5, udev, openssl, fftwFloat
 , speexdsp, systemd, webrtc-audio-processing, gconf ? null
@@ -34,14 +34,16 @@
 
 stdenv.mkDerivation rec {
   name = "${if libOnly then "lib" else ""}pulseaudio-${version}";
-  version = "6.0";
+  version = "9.0";
 
   src = fetchurl {
     url = "http://freedesktop.org/software/pulseaudio/releases/pulseaudio-${version}.tar.xz";
-    sha256 = "1xpnfxa0d8pgf6b4qdgnkcvrvdxbbbjd5ync19h0f5hbp3h401mm";
+    sha256 = "11j682g2mn723sz3bh4i44ggq29z053zcggy0glzn63zh9mxdly3";
   };
 
   patches = [ ./caps-fix.patch ];
+
+  outputs = [ "dev" "out" ];
 
   nativeBuildInputs = [ pkgconfig intltool autoreconfHook ];
 
@@ -50,11 +52,11 @@ stdenv.mkDerivation rec {
 
   buildInputs =
     [ json_c libsndfile speexdsp fftwFloat ]
-    ++ lib.optionals stdenv.isLinux [ glib dbus.libs ]
+    ++ lib.optionals stdenv.isLinux [ glib dbus ]
     ++ lib.optionals (!libOnly) (
       [ libasyncns webrtc-audio-processing ]
       ++ lib.optional jackaudioSupport libjack2
-      ++ lib.optionals x11Support [ xlibs.xlibs xlibs.libXtst xlibs.libXi ]
+      ++ lib.optionals x11Support [ xorg.xlibsWrapper xorg.libXtst xorg.libXi ]
       ++ lib.optional useSystemd systemd
       ++ lib.optionals stdenv.isLinux [ alsaLib udev ]
       ++ lib.optional airtunesSupport openssl
@@ -88,6 +90,7 @@ stdenv.mkDerivation rec {
     [ "--localstatedir=/var"
       "--sysconfdir=/etc"
       "--with-access-group=audio"
+      "--with-bash-completion-dir=\${out}/share/bash-completions/completions"
     ]
     ++ lib.optional (jackaudioSupport && !libOnly) "--enable-jack"
     ++ lib.optional stdenv.isDarwin "--with-mac-sysroot=/"
@@ -109,8 +112,9 @@ stdenv.mkDerivation rec {
 
   postInstall = lib.optionalString libOnly ''
     rm -rf $out/{bin,share,etc,lib/{pulse-*,systemd}}
-    sed 's|-lltdl|-L${libtool}/lib -lltdl|' -i $out/lib/libpulsecore-6.0.la
-  '';
+    sed 's|-lltdl|-L${libtool.lib}/lib -lltdl|' -i $out/lib/pulseaudio/libpulsecore-${version}.la
+  ''
+    + ''moveToOutput lib/cmake "$dev" '';
 
   meta = {
     description = "Sound server for POSIX and Win32 systems";

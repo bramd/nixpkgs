@@ -32,7 +32,8 @@ in
 
     boot.extraModulePackages = [ kernel.virtualboxGuestAdditions ];
 
-    boot.kernelModules = [ "vboxsf" ];
+    boot.supportedFilesystems = [ "vboxsf" ];
+    boot.initrd.supportedFilesystems = [ "vboxsf" ];
 
     users.extraGroups.vboxsf.gid = config.ids.gids.vboxsf;
 
@@ -65,7 +66,7 @@ in
 
     services.xserver.displayManager.sessionCommands =
       ''
-        PATH=${makeSearchPath "bin" [ pkgs.gnugrep pkgs.which pkgs.xorg.xorgserver ]}:$PATH \
+        PATH=${makeBinPath [ pkgs.gnugrep pkgs.which pkgs.xorg.xorgserver.out ]}:$PATH \
           ${kernel.virtualboxGuestAdditions}/bin/VBoxClient-all
       '';
 
@@ -76,7 +77,7 @@ in
         KERNEL=="vboxuser",  OWNER="root", GROUP="root", MODE="0666"
 
         # Allow systemd dependencies on vboxguest.
-        KERNEL=="vboxguest", TAG+="systemd"
+        SUBSYSTEM=="misc", KERNEL=="vboxguest", TAG+="systemd"
       '';
   };
 

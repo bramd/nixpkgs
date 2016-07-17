@@ -1,11 +1,11 @@
 { fetchurl, stdenv }:
 
 stdenv.mkDerivation rec {
-  name = "diffstat-1.59";
+  name = "diffstat-1.61";
 
   src = fetchurl {
     url = "ftp://invisible-island.net/diffstat/${name}.tgz";
-    sha256 = "0w7jvfilbnfa9v3h8j8ipirvrj7n2x5gszfanzxvx748p10i8z96";
+    sha256 = "1vjmda2zfjxg0qkaj8hfqa8g6bfwnn1ja8696rxrjgqq4w69wd95";
   };
 
   meta = with stdenv.lib; {

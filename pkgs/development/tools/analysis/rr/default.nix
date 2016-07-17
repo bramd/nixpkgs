@@ -1,28 +1,35 @@
-{ stdenv, fetchFromGitHub, cmake, libpfm, zlib, python }:
+{ stdenv, fetchFromGitHub, cmake, libpfm, zlib, python, pkgconfig, pythonPackages, which, procps, gdb }:
 
 stdenv.mkDerivation rec {
-  version = "3.0.0";
+  version = "4.2.0";
   name = "rr-${version}";
 
   src = fetchFromGitHub {
     owner = "mozilla";
     repo = "rr";
     rev = version;
-    sha256 = "1h4ddq7mmi0sfj6mh1qg2bfs3x7gz5qmn9dlnmpkrp38rqgnnhrg";
+    sha256 = "03fl2wgbc1cilaw8hrhfqjsbpi05cid6k4cr3s2vmv5gx0dnrgy4";
   };
 
-  patchPhase = ''
+  postPatch = ''
     substituteInPlace src/Command.cc --replace '_BSD_SOURCE' '_DEFAULT_SOURCE'
-  ''
-  # On 64bit machines, don't build the 32-bit components for debugging
-  # 32-bit binaries. This sucks but I don't know how to make 'gcc' cooperate
-  # easily with how CMake works to build 32 and 64bit binaries at once.
-  + stdenv.lib.optionalString (stdenv.system == "x86_64-linux") ''
-    substituteInPlace CMakeLists.txt --replace 'if(rr_64BIT)' 'if(false)'
+    sed '7i#include <math.h>' -i src/Scheduler.cc
+    patchShebangs .
   '';
 
-  buildInputs = [ cmake libpfm zlib python ];
-  cmakeFlags = "-DCMAKE_C_FLAGS_RELEASE:STRING= -DCMAKE_CXX_FLAGS_RELEASE:STRING=";
+  buildInputs = [ cmake libpfm zlib python pkgconfig pythonPackages.pexpect which procps gdb ];
+  cmakeFlags = [
+    "-DCMAKE_C_FLAGS_RELEASE:STRING="
+    "-DCMAKE_CXX_FLAGS_RELEASE:STRING="
+    "-Ddisable32bit=ON"
+  ];
+
+  enableParallelBuilding = true;
+
+  # FIXME
+  #doCheck = true;
+
+  preCheck = "export HOME=$TMPDIR";
 
   meta = {
     homepage = http://rr-project.org/;

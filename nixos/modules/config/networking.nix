@@ -11,6 +11,9 @@ let
                    config.services.dnsmasq.resolveLocalQueries;
   hasLocalResolver = config.services.bind.enable || dnsmasqResolve;
 
+  resolvconfOptions = cfg.resolvconfOptions
+    ++ optional cfg.dnsSingleRequest "single-request"
+    ++ optional cfg.dnsExtensionMechanism "ends0";
 in
 
 {
@@ -36,6 +39,35 @@ in
         that 'getent hosts example.com' only returns ipv6 (or perhaps only ipv4) addresses. The
         workaround for this is to specify the option 'single-request' in
         /etc/resolv.conf. This option enables that.
+      '';
+    };
+
+    networking.dnsExtensionMechanism = lib.mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Enable the <code>edns0</code> option in <filename>resolv.conf</filename>. With
+        that option set, <code>glibc</code> supports use of the extension mechanisms for
+        DNS (EDNS) specified in RFC 2671. The most popular user of that feature is DNSSEC,
+        which does not work without it.
+      '';
+    };
+
+    networking.extraResolvconfConf = lib.mkOption {
+      type = types.lines;
+      default = "";
+      example = "libc=NO";
+      description = ''
+        Extra configuration to append to <filename>resolvconf.conf</filename>.
+      '';
+    };
+
+    networking.resolvconfOptions = lib.mkOption {
+      type = types.listOf types.str;
+      default = [];
+      example = [ "ndots:1" "rotate" ];
+      description = ''
+        Set the options in <filename>/etc/resolv.conf</filename>.
       '';
     };
 
@@ -86,6 +118,15 @@ in
         example = "http://127.0.0.1:3128";
       };
 
+      allProxy = lib.mkOption {
+        type = types.nullOr types.str;
+        default = cfg.proxy.default;
+        description = ''
+          This option specifies the all_proxy environment variable.
+        '';
+        example = "http://127.0.0.1:3128";
+      };
+
       noProxy = lib.mkOption {
         type = types.nullOr types.str;
         default = null;
@@ -118,7 +159,7 @@ in
         "protocols".source  = pkgs.iana_etc + "/etc/protocols";
 
         # /etc/rpc: RPC program numbers.
-        "rpc".source = pkgs.glibc + "/etc/rpc";
+        "rpc".source = pkgs.glibc.out + "/etc/rpc";
 
         # /etc/hosts: Hostname-to-IP mappings.
         "hosts".text =
@@ -141,15 +182,16 @@ in
               # Invalidate the nscd cache whenever resolv.conf is
               # regenerated.
               libc_restart='${pkgs.systemd}/bin/systemctl try-restart --no-block nscd.service 2> /dev/null'
-            '' + optionalString cfg.dnsSingleRequest ''
-              # only send one DNS request at a time
-              resolv_conf_options='single-request'
+            '' + optionalString (length resolvconfOptions > 0) ''
+              # Options as described in resolv.conf(5)
+              resolv_conf_options='${concatStringsSep " " resolvconfOptions}'
             '' + optionalString hasLocalResolver ''
               # This hosts runs a full-blown DNS resolver.
               name_servers='127.0.0.1'
             '' + optionalString dnsmasqResolve ''
               dnsmasq_conf=/etc/dnsmasq-conf.conf
               dnsmasq_resolv=/etc/dnsmasq-resolv.conf
+            '' + cfg.extraResolvconfConf + ''
             '';
 
       } // (optionalAttrs config.services.resolved.enable (
@@ -172,6 +214,8 @@ in
           rsync_proxy = cfg.proxy.rsyncProxy;
         } // optionalAttrs (cfg.proxy.ftpProxy != null) {
           ftp_proxy   = cfg.proxy.ftpProxy;
+        } // optionalAttrs (cfg.proxy.allProxy != null) {
+          all_proxy   = cfg.proxy.allProxy;
         } // optionalAttrs (cfg.proxy.noProxy != null) {
           no_proxy    = cfg.proxy.noProxy;
         };

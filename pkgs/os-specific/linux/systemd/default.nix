@@ -1,34 +1,44 @@
-{ stdenv, fetchurl, pkgconfig, intltool, gperf, libcap, dbus, kmod
-, xz, pam, acl, cryptsetup, libuuid, m4, utillinux
-, glib, kbd, libxslt, coreutils, libgcrypt
-, kexectools, libmicrohttpd, linuxHeaders
-, pythonPackages ? null, pythonSupport ? false
+{ stdenv, fetchFromGitHub, pkgconfig, intltool, gperf, libcap, kmod
+, zlib, xz, pam, acl, cryptsetup, libuuid, m4, utillinux, libffi
+, glib, kbd, libxslt, coreutils, libgcrypt, libgpgerror, libapparmor, audit, lz4
+, kexectools, libmicrohttpd, linuxHeaders ? stdenv.cc.libc.linuxHeaders, libseccomp
+, iptables, gnu-efi
+, autoreconfHook, gettext, docbook_xsl, docbook_xml_dtd_42, docbook_xml_dtd_45
+, enableKDbus ? false
 }:
 
 assert stdenv.isLinux;
 
-assert pythonSupport -> pythonPackages != null;
-
 stdenv.mkDerivation rec {
-  version = "217";
+  version = "230";
   name = "systemd-${version}";
 
-  src = fetchurl {
-    url = "http://www.freedesktop.org/software/systemd/${name}.tar.xz";
-    sha256 = "163l1y4p2a564d4ynfq3k3xf53j2v5s81blb6cvpn1y7rpxyccd0";
+  src = fetchFromGitHub {
+    owner = "NixOS";
+    repo = "systemd";
+    rev = "81d5aaac06b43fd72f5ab02734a17cbfb55d1f5b";
+    sha256 = "1ig7jwmvaa1r4qlngjpnvvvvxhmzbxr171d257q4ryf87l93g1an";
   };
 
-  patches =
-    [ # These are all changes between upstream and
-      # https://github.com/NixOS/systemd/tree/nixos-v217.
-      ./fixes.patch
-    ];
+  /* gave up for now!
+  outputs = [ "out" "libudev" "doc" ]; # maybe: "dev"
+  # note: there are many references to ${systemd}/...
+  outputDev = "out";
+  propagatedBuildOutputs = "libudev";
+  */
+  outputs = [ "out" "man" ];
 
   buildInputs =
-    [ pkgconfig intltool gperf libcap kmod xz pam acl
-      /* cryptsetup */ libuuid m4 glib libxslt libgcrypt
-      libmicrohttpd linuxHeaders
-    ] ++ stdenv.lib.optionals pythonSupport [pythonPackages.python pythonPackages.lxml];
+    [ linuxHeaders pkgconfig intltool gperf libcap kmod xz pam acl
+      /* cryptsetup */ libuuid m4 glib libxslt libgcrypt libgpgerror
+      libmicrohttpd kexectools libseccomp libffi audit lz4 libapparmor
+      iptables gnu-efi
+      /* FIXME: we may be able to prevent the following dependencies
+         by generating an autoconf'd tarball, but that's probably not
+         worth it. */
+      autoreconfHook gettext docbook_xsl docbook_xml_dtd_42 docbook_xml_dtd_45
+    ];
+
 
   configureFlags =
     [ "--localstatedir=/var"
@@ -37,63 +47,82 @@ stdenv.mkDerivation rec {
       "--with-kbd-loadkeys=${kbd}/bin/loadkeys"
       "--with-kbd-setfont=${kbd}/bin/setfont"
       "--with-rootprefix=$(out)"
-      "--with-dbusinterfacedir=$(out)/share/dbus-1/interfaces"
       "--with-dbuspolicydir=$(out)/etc/dbus-1/system.d"
       "--with-dbussystemservicedir=$(out)/share/dbus-1/system-services"
       "--with-dbussessionservicedir=$(out)/share/dbus-1/services"
-      "--with-firmware-path=/root/test-firmware:/run/current-system/firmware"
       "--with-tty-gid=3" # tty in NixOS has gid 3
       "--enable-compat-libs" # get rid of this eventually
       "--disable-tests"
 
-      "--disable-hostnamed"
+      "--enable-lz4"
+      "--enable-hostnamed"
       "--enable-networkd"
       "--disable-sysusers"
-      "--disable-timedated"
+      "--enable-timedated"
       "--enable-timesyncd"
-      "--disable-readahead"
       "--disable-firstboot"
-      "--disable-localed"
+      "--enable-localed"
       "--enable-resolved"
       "--disable-split-usr"
+      "--disable-libcurl"
+      "--disable-libidn"
+      "--disable-quotacheck"
+      "--disable-ldconfig"
+      "--disable-smack"
+
+      (if stdenv.isArm then "--disable-gnuefi" else "--enable-gnuefi")
+      "--with-efi-libdir=${gnu-efi}/lib"
+      "--with-efi-includedir=${gnu-efi}/include"
+      "--with-efi-ldsdir=${gnu-efi}/lib"
 
       "--with-sysvinit-path="
       "--with-sysvrcnd-path="
       "--with-rc-local-script-path-stop=/etc/halt.local"
-    ];
+    ] ++ (if enableKDbus then [ "--enable-kdbus" ] else [ "--disable-kdbus" ]);
 
   preConfigure =
     ''
+      ./autogen.sh
+
       # FIXME: patch this in systemd properly (and send upstream).
-      # FIXME: use sulogin from util-linux once updated.
-      for i in src/remount-fs/remount-fs.c src/core/mount.c src/core/swap.c src/fsck/fsck.c units/emergency.service.in units/rescue.service.in src/journal/cat.c src/core/shutdown.c src/nspawn/nspawn.c; do
+      for i in src/remount-fs/remount-fs.c src/core/mount.c src/core/swap.c src/fsck/fsck.c units/emergency.service.in units/rescue.service.in src/journal/cat.c src/core/shutdown.c src/nspawn/nspawn.c src/shared/generator.c; do
         test -e $i
         substituteInPlace $i \
-          --replace /usr/bin/getent ${stdenv.glibc}/bin/getent \
-          --replace /bin/mount ${utillinux}/bin/mount \
-          --replace /bin/umount ${utillinux}/bin/umount \
-          --replace /sbin/swapon ${utillinux}/sbin/swapon \
-          --replace /sbin/swapoff ${utillinux}/sbin/swapoff \
+          --replace /usr/bin/getent ${stdenv.glibc.bin}/bin/getent \
+          --replace /bin/mount ${utillinux.bin}/bin/mount \
+          --replace /bin/umount ${utillinux.bin}/bin/umount \
+          --replace /sbin/swapon ${utillinux.bin}/sbin/swapon \
+          --replace /sbin/swapoff ${utillinux.bin}/sbin/swapoff \
+          --replace /sbin/fsck ${utillinux.bin}/sbin/fsck \
           --replace /bin/echo ${coreutils}/bin/echo \
           --replace /bin/cat ${coreutils}/bin/cat \
-          --replace /sbin/sulogin ${utillinux}/sbin/sulogin \
-          --replace /sbin/kexec ${kexectools}/sbin/kexec
+          --replace /sbin/sulogin ${utillinux.bin}/sbin/sulogin \
+          --replace /usr/lib/systemd/systemd-fsck $out/lib/systemd/systemd-fsck \
+          --replace /bin/plymouth /run/current-system/sw/bin/plymouth # To avoid dependency
       done
 
       substituteInPlace src/journal/catalog.c \
         --replace /usr/lib/systemd/catalog/ $out/lib/systemd/catalog/
 
       configureFlagsArray+=("--with-ntp-servers=0.nixos.pool.ntp.org 1.nixos.pool.ntp.org 2.nixos.pool.ntp.org 3.nixos.pool.ntp.org")
+
+      #export NIX_CFLAGS_LINK+=" -Wl,-rpath,$libudev/lib"
     '';
 
-  # This is needed because systemd uses the gold linker, which doesn't
-  # yet have the wrapper script to add rpath flags automatically.
-  NIX_LDFLAGS = "-rpath ${pam}/lib -rpath ${libcap}/lib -rpath ${acl}/lib -rpath ${stdenv.cc.cc}/lib";
+  /*
+  makeFlags = [
+    "udevlibexecdir=$(libudev)/lib/udev"
+    # udev rules refer to $out, and anything but libs should probably go to $out
+    "udevrulesdir=$(out)/lib/udev/rules.d"
+    "udevhwdbdir=$(out)/lib/udev/hwdb.d"
+  ];
+  */
+
 
   PYTHON_BINARY = "${coreutils}/bin/env python"; # don't want a build time dependency on Python
 
   NIX_CFLAGS_COMPILE =
-    [ # Can't say ${polkit}/bin/pkttyagent here because that would
+    [ # Can't say ${polkit.bin}/bin/pkttyagent here because that would
       # lead to a cyclic dependency.
       "-UPOLKIT_AGENT_BINARY_PATH" "-DPOLKIT_AGENT_BINARY_PATH=\"/run/current-system/sw/bin/pkttyagent\""
       "-fno-stack-protector"
@@ -105,13 +134,6 @@ stdenv.mkDerivation rec {
 
       "-USYSTEMD_BINARY_PATH" "-DSYSTEMD_BINARY_PATH=\"/run/current-system/systemd/lib/systemd/systemd\""
     ];
-
-  # Use /var/lib/udev rather than /etc/udev for the generated hardware
-  # database.  Upstream doesn't want this (see commit
-  # 1e1954f53386cb773e2a152748dd31c4d36aa2d8) because using /var is
-  # forbidden in early boot, but in NixOS the initrd guarantees that
-  # /var is mounted.
-  makeFlags = "hwdb_bin=/var/lib/udev/hwdb.bin";
 
   installFlags =
     [ "localstatedir=$(TMPDIR)/var"
@@ -147,9 +169,36 @@ stdenv.mkDerivation rec {
       done
 
       rm -rf $out/etc/rpm
+
+      rm $out/lib/*.la
+
+      # "kernel-install" shouldn't be used on NixOS.
+      find $out -name "*kernel-install*" -exec rm {} \;
     ''; # */
+  /*
+      # Move lib(g)udev to a separate output. TODO: maybe split them up
+      #   to avoid libudev pulling glib
+      mkdir -p "$libudev/lib"
+      mv "$out"/lib/lib{,g}udev* "$libudev/lib/"
+
+      for i in "$libudev"/lib/*.la; do
+        substituteInPlace $i --replace "$out" "$libudev"
+      done
+      for i in "$out"/lib/pkgconfig/{libudev,gudev-1.0}.pc; do
+        substituteInPlace $i --replace "libdir=$out" "libdir=$libudev"
+      done
+  */
 
   enableParallelBuilding = true;
+  /*
+  # some libs fail to link to liblzma and/or libffi
+  postFixup = let extraLibs = stdenv.lib.makeLibraryPath [ xz.out libffi.out zlib.out ];
+    in ''
+      for f in "$out"/lib/*.so.0.*; do
+        patchelf --set-rpath `patchelf --print-rpath "$f"`':${extraLibs}' "$f"
+      done
+    '';
+  */
 
   # The interface version prevents NixOS from switching to an
   # incompatible systemd at runtime.  (Switching across reboots is
@@ -163,6 +212,6 @@ stdenv.mkDerivation rec {
     homepage = "http://www.freedesktop.org/wiki/Software/systemd";
     description = "A system and service manager for Linux";
     platforms = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.eelco stdenv.lib.maintainers.simons ];
+    maintainers = [ stdenv.lib.maintainers.eelco ];
   };
 }

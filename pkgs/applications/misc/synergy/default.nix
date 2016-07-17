@@ -1,17 +1,17 @@
-{ stdenv, fetchFromGitHub, cmake, x11, libX11, libXi, libXtst, libXrandr
+{ stdenv, fetchFromGitHub, cmake, xlibsWrapper, libX11, libXi, libXtst, libXrandr
 , xinput, curl, openssl, unzip }:
 
 with stdenv.lib;
 
 stdenv.mkDerivation rec {
   name = "synergy-${version}";
-  version = "1.7.4";
+  version = "1.7.6";
 
   src = fetchFromGitHub {
-    owner = "synergy";
+    owner = "symless";
     repo = "synergy";
     rev = "v${version}-stable";
-    sha256 = "0pxj0qpnsaffpaxik8vc5rjfinmx8ab3b2lssrxkfbs7isskvs33";
+    sha256 = "1bjksvdr74mc3xh11z4fd6qlhgklny51q5r6gqg1bhnvn9dzyrxw";
   };
 
   postPatch = ''
@@ -37,7 +37,7 @@ stdenv.mkDerivation rec {
   '';
 
   buildInputs = [
-    cmake x11 libX11 libXi libXtst libXrandr xinput curl openssl
+    cmake xlibsWrapper libX11 libXi libXtst libXrandr xinput curl openssl
   ];
 
   installPhase = ''

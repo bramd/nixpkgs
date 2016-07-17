@@ -1,6 +1,6 @@
 { stdenv, fetchurl, buildEnv, makeWrapper
-, xlibs, alsaLib, dbus, glib, gtk, atk, pango, freetype, fontconfig
-, gdk_pixbuf, cairo, zlib, nss, nssTools, nspr, gconf, expat, udev, libcap
+, xorg, alsaLib, dbus, glib, gtk, atk, pango, freetype, fontconfig
+, gdk_pixbuf, cairo, zlib, nss, nssTools, nspr, gconf, expat, libudev, libcap
 , libnotify}:
 let
   bits = if stdenv.system == "x86_64-linux" then "x64"
@@ -9,10 +9,10 @@ let
   nwEnv = buildEnv {
     name = "node-webkit-env";
     paths = [
-      xlibs.libX11 xlibs.libXrender glib gtk atk pango cairo gdk_pixbuf
-      freetype fontconfig xlibs.libXcomposite alsaLib xlibs.libXdamage
-      xlibs.libXext xlibs.libXfixes nss nspr gconf expat dbus stdenv.cc
-      xlibs.libXtst xlibs.libXi xlibs.libXcursor xlibs.libXrandr libcap
+      xorg.libX11 xorg.libXrender glib gtk atk pango cairo gdk_pixbuf
+      freetype fontconfig xorg.libXcomposite alsaLib xorg.libXdamage
+      xorg.libXext xorg.libXfixes nss nspr gconf expat dbus stdenv.cc
+      xorg.libXtst xorg.libXi xorg.libXcursor xorg.libXrandr libcap
       libnotify
     ];
   };
@@ -35,7 +35,7 @@ in stdenv.mkDerivation rec {
     patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" $out/share/node-webkit/nw
     patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" $out/share/node-webkit/nwsnapshot
 
-    ln -s ${udev}/lib/libudev.so $out/share/node-webkit/libudev.so.0
+    ln -s ${libudev.out}/lib/libudev.so $out/share/node-webkit/libudev.so.0
 
     patchelf --set-rpath "${nwEnv}/lib:${nwEnv}/lib64:$out/share/node-webkit" $out/share/node-webkit/nw
     patchelf --set-rpath "${nwEnv}/lib:${nwEnv}/lib64:$out/share/node-webkit" $out/share/node-webkit/nwsnapshot

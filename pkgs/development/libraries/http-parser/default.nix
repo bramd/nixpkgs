@@ -1,13 +1,13 @@
 { stdenv, fetchurl, gyp, utillinux, python, fixDarwinDylibNames }:
 
 let
-  version = "2.5.0";
+  version = "2.7.0";
 in stdenv.mkDerivation {
   name = "http-parser-${version}";
 
   src = fetchurl {
     url = "https://github.com/joyent/http-parser/archive/v${version}.tar.gz";
-    sha256 = "108lh05pl4i5w7hmkw07k9wklk5pbh705pw1qyz5zvp6yicbmd73";
+    sha256 = "0rqij6v6wv1giwx4prfa082kw1nka5d9vlb06zkc8mwszq1vzidh";
   };
 
   patches = [ ./build-shared.patch ];

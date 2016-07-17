@@ -1,15 +1,16 @@
-{ stdenv, fetchgit, pkgconfig, qjson, kdelibs }:
+{ stdenv, fetchgit, automoc4, cmake, pkgconfig, qjson, kdelibs }:
 
 stdenv.mkDerivation {
-  name = "libkvkonatkte-1.0-pre20120103";
+  name = "libkvkontakte-1.0-pre20120103";
 
   src = fetchgit {
     url = git://anongit.kde.org/libkvkontakte;
     rev = "4024f69cf54625dbe5dc2e2d811a996774a669ff";
-    sha256 = "0ryvjfrsws845k9s76715xid48y01h0ynb5wdx6ln8cm5z5wqj61";
+    sha256 = "1ly95bc72a4zjqhr03liciqpi2hp8x4gqzm4gzr8alfysv2jvxbb";
   };
 
-  buildInputs = [ pkgconfig qjson kdelibs ];
+  nativeBuildInputs = [ automoc4 cmake pkgconfig ];
+  buildInputs = [ qjson kdelibs ];
 
   meta = {
     homepage = https://projects.kde.org/projects/extragear/libs/libkvkontakte;

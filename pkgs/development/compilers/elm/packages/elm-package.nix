@@ -1,24 +1,32 @@
 { mkDerivation, aeson, aeson-pretty, ansi-wl-pprint, base, binary
-, bytestring, containers, directory, elm-compiler, fetchgit
-, filepath, HTTP, http-client, http-client-tls, http-types, mtl
-, network, optparse-applicative, pretty, process, stdenv, text
-, time, unordered-containers, vector, zip-archive
+, bytestring, containers, directory, edit-distance, elm-compiler
+, fetchgit, filepath, HTTP, http-client, http-client-tls
+, http-types, mtl, network, optparse-applicative, parallel-io
+, pretty, stdenv, text, time, unordered-containers, vector
+, zip-archive
 }:
 mkDerivation {
   pname = "elm-package";
-  version = "0.5.1";
+  version = "0.17.1";
   src = fetchgit {
     url = "https://github.com/elm-lang/elm-package";
-    sha256 = "0d69e68831f4a86c6c02aed33fc3a6aca87636a7fb0bb6e39ffc74ddd15b5435";
-    rev = "365e2d86a8222c92e50951c7d30b3c5db44c383d";
+    sha256 = "0dnn871py0pvzxsjjggy5ww2zj9g71c2dcnp38rcr4nbj8yxik85";
+    rev = "9011ccdbced1d06aa60de0e3096e609ef44d26dd";
   };
   isLibrary = true;
   isExecutable = true;
-  buildDepends = [
+  libraryHaskellDepends = [
     aeson aeson-pretty ansi-wl-pprint base binary bytestring containers
-    directory elm-compiler filepath HTTP http-client http-client-tls
-    http-types mtl network optparse-applicative pretty process text
-    time unordered-containers vector zip-archive
+    directory edit-distance elm-compiler filepath HTTP http-client
+    http-client-tls http-types mtl network parallel-io text time
+    unordered-containers vector zip-archive
+  ];
+  executableHaskellDepends = [
+    aeson aeson-pretty ansi-wl-pprint base binary bytestring containers
+    directory edit-distance elm-compiler filepath HTTP http-client
+    http-client-tls http-types mtl network optparse-applicative
+    parallel-io pretty text time unordered-containers vector
+    zip-archive
   ];
   jailbreak = true;
   homepage = "http://github.com/elm-lang/elm-package";

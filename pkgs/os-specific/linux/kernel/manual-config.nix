@@ -1,4 +1,4 @@
-{ stdenv, runCommand, nettools, bc, perl, kmod, writeTextFile, ubootChooser }:
+{ stdenv, runCommand, nettools, bc, perl, kmod, openssl, writeTextFile, ubootChooser }:
 
 let
   readConfig = configfile: import (runCommand "config.nix" {} ''
@@ -74,9 +74,9 @@ let
 
       installsFirmware = (config.isEnabled "FW_LOADER") &&
         (isModular || (config.isDisabled "FIRMWARE_IN_KERNEL"));
-    in (optionalAttrs isModular { outputs = [ "out" "dev" ]; }) // {
+    in (optionalAttrs isModular { outputs = [ "out" "dev" ]; propagatedBuildOutputs = ""; }) // {
       passthru = {
-        inherit version modDirVersion config kernelPatches;
+        inherit version modDirVersion config kernelPatches configfile;
       };
 
       inherit src;
@@ -102,12 +102,14 @@ let
         make $makeFlags "''${makeFlagsArray[@]}" oldconfig
         runHook postConfigure
 
-        buildFlagsArray+=("KBUILD_BUILD_TIMESTAMP=Thu Jan 1 00:00:01 UTC 1970")
+        # Note: we can get rid of this once http://permalink.gmane.org/gmane.linux.kbuild.devel/13800 is merged.
+        buildFlagsArray+=("KBUILD_BUILD_TIMESTAMP=$(date -u -d @$SOURCE_DATE_EPOCH)")
       '';
 
       buildFlags = [
         "KBUILD_BUILD_VERSION=1-NixOS"
         platform.kernelTarget
+        "vmlinux"  # for "perf" and things like that
       ] ++ optional isModular "modules";
 
       installFlags = [
@@ -121,13 +123,19 @@ let
                           if platform.kernelTarget == "zImage" then "zinstall" else
                           "install") ];
 
-      postInstall = (optionalString installsFirmware ''
+      postInstall = ''
+        mkdir -p $dev
+        cp $buildRoot/vmlinux $dev/
+      '' + (optionalString installsFirmware ''
         mkdir -p $out/lib/firmware
       '') + (if (platform ? kernelDTB && platform.kernelDTB) then ''
- 	make $makeFlags "''${makeFlagsArray[@]}" dtbs
+        make $makeFlags "''${makeFlagsArray[@]}" dtbs
         mkdir -p $out/dtbs
         cp $buildRoot/arch/$karch/boot/dts/*.dtb $out/dtbs
       '' else "") + (if isModular then ''
+        if [ -z "$dontStrip" ]; then
+          installFlagsArray+=("INSTALL_MOD_STRIP=1")
+        fi
         make modules_install $makeFlags "''${makeFlagsArray[@]}" \
           $installFlags "''${installFlagsArray[@]}"
         unlink $out/lib/modules/${modDirVersion}/build
@@ -186,17 +194,7 @@ let
           $installFlags "''${installFlagsArray[@]}"
       '');
 
-      # !!! This leaves references to gcc in $dev
-      # that we might be able to avoid
-      postFixup = if isModular then ''
-        if [ -z "$dontStrip" ]; then
-            find $out -name "*.ko" -print0 | xargs -0 -r ''${crossConfig+$crossConfig-}strip -S
-        fi
-        # !!! Should this be part of stdenv? Also patchELF should take an argument...
-        prefix=$dev
-        patchELF
-        prefix=$out
-      '' else null;
+      requiredSystemFeatures = [ "big-parallel" ];
 
       meta = {
         description =
@@ -221,7 +219,7 @@ stdenv.mkDerivation ((drvAttrs config stdenv.platform (kernelPatches ++ nativeKe
 
   enableParallelBuilding = true;
 
-  nativeBuildInputs = [ perl bc nettools ] ++ optional (stdenv.platform.uboot != null)
+  nativeBuildInputs = [ perl bc nettools openssl ] ++ optional (stdenv.platform.uboot != null)
     (ubootChooser stdenv.platform.uboot);
 
   makeFlags = commonMakeFlags ++ [

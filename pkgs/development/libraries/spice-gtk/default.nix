@@ -1,16 +1,16 @@
 { stdenv, fetchurl, pkgconfig, gtk, spice_protocol, intltool, celt_0_5_1
 , openssl, libpulseaudio, pixman, gobjectIntrospection, libjpeg_turbo, zlib
-, cyrus_sasl, python, pygtk, autoconf, automake, libtool, usbredir, libsoup
+, cyrus_sasl, python, pygtk, autoreconfHook, usbredir, libsoup
 , gtk3, enableGTK3 ? false }:
 
 with stdenv.lib;
 
 stdenv.mkDerivation rec {
-  name = "spice-gtk-0.27";
+  name = "spice-gtk-0.29";
 
   src = fetchurl {
     url = "http://www.spice-space.org/download/gtk/${name}.tar.bz2";
-    sha256 = "0323j3q7gagi83fvxd7v9vdxqv2s3ziss44ici342hyv21qf0xah";
+    sha256 = "0wz9sm44gnmwjpmyacwd5jyzvhfl1wlf1dn3qda20si42cky5is4";
   };
 
   buildInputs = [
@@ -18,15 +18,16 @@ stdenv.mkDerivation rec {
     libjpeg_turbo zlib cyrus_sasl python pygtk usbredir
   ] ++ (if enableGTK3 then [ gtk3 ] else [ gtk ]);
 
-  nativeBuildInputs = [ pkgconfig intltool libtool libsoup autoconf automake ];
+  nativeBuildInputs = [ pkgconfig intltool libsoup autoreconfHook ];
 
   NIX_CFLAGS_COMPILE = "-fno-stack-protector";
 
-  preConfigure = ''
-    substituteInPlace gtk/Makefile.am \
-      --replace '=codegendir pygtk-2.0' '=codegendir pygobject-2.0'
+  preAutoreconf = ''
+    substituteInPlace src/Makefile.am \
+          --replace '=codegendir pygtk-2.0' '=codegendir pygobject-2.0'
+  '';
 
-    autoreconf -v --force --install
+  preConfigure = ''
     intltoolize -f
   '';
 

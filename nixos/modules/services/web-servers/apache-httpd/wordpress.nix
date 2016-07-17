@@ -5,8 +5,8 @@ with lib;
 
 let
 
-  version = "4.2";
-  fullversion = "${version}.2";
+  version = "4.3.1";
+  fullversion = "${version}";
 
   # Our bare-bones wp-config.php file using the above settings
   wordpressConfig = pkgs.writeText "wp-config.php" ''
@@ -17,10 +17,10 @@ let
     define('DB_HOST',     '${config.dbHost}');
     define('DB_CHARSET',  'utf8');
     $table_prefix  = '${config.tablePrefix}';
+    ${config.extraConfig}
     if ( !defined('ABSPATH') )
     	define('ABSPATH', dirname(__FILE__) . '/');
     require_once(ABSPATH . 'wp-settings.php');
-    ${config.extraConfig}
   '';
 
   # .htaccess to support pretty URLs
@@ -40,6 +40,8 @@ let
     RewriteRule ^(.*\.php)$ $1 [L]
     RewriteRule . index.php [L]
     </IfModule>
+
+    ${config.extraHtaccess}
   '';
 
   # WP translation can be found here:
@@ -72,7 +74,7 @@ let
       owner = "WordPress";
       repo = "WordPress";
       rev = "${fullversion}";
-      sha256 = "0gq1j9b0d0rykql3jzdb2yn4adj0rrcsvqrmj3dzx11ir57ilsgc";
+      sha256 = "1rk10vcv4z9p04hfzc0wkbilrgx7m9ssyr6c3w6vw3vl1bcgqxza";
     };
     installPhase = ''
       mkdir -p $out
@@ -220,7 +222,18 @@ in
         settings, see <link xlink:href='http://codex.wordpress.org/Editing_wp-config.php'/>.
       '';
     };
-  }; 
+    extraHtaccess = mkOption {
+      default = "";
+      example =
+        ''
+          php_value upload_max_filesize 20M
+          php_value post_max_size 20M
+        '';
+      description = ''
+        Any additional text to be appended to Wordpress's .htaccess file.
+      '';
+    };
+  };
 
   documentRoot = wordpressRoot;
 
@@ -235,7 +248,7 @@ in
     if [ ! -d ${serverInfo.fullConfig.services.mysql.dataDir}/${config.dbName} ]; then
       echo "Need to create the database '${config.dbName}' and grant permissions to user named '${config.dbUser}'."
       # Wait until MySQL is up
-      while [ ! -e /var/run/mysql/mysqld.pid ]; do
+      while [ ! -e ${serverInfo.fullConfig.services.mysql.pidDir}/mysqld.pid ]; do
         sleep 1
       done
       ${pkgs.mysql}/bin/mysql -e 'CREATE DATABASE ${config.dbName};'

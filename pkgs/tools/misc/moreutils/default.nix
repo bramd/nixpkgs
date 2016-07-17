@@ -3,11 +3,11 @@
 with stdenv.lib;
 stdenv.mkDerivation rec {
   name = "moreutils-${version}";
-  version = "0.57";
+  version = "0.59";
 
   src = fetchurl {
     url = "http://ftp.de.debian.org/debian/pool/main/m/moreutils/moreutils_${version}.orig.tar.gz";
-    sha256 = "078dpkwwwrv8hxnylbc901kib2d1rr3hsja37j6dlpjfcfq58z9s";
+    sha256 = "1d6ik3j4lwp90vb93p7yv60k6vk2chz448d1z9xrmxvv371i33m4";
   };
 
   preBuild = ''
@@ -26,5 +26,6 @@ stdenv.mkDerivation rec {
     description = "Growing collection of the unix tools that nobody thought to write long ago when unix was young";
     homepage = https://joeyh.name/code/moreutils/;
     maintainers = with maintainers; [ koral ];
+    platforms = platforms.all;
   };
 }

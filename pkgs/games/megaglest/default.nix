@@ -1,12 +1,12 @@
 { stdenv, fetchgit, cmake, git, curl, SDL, xercesc, openal, lua
 , libjpeg, wxGTK, cppunit, ftgl, glew, libogg, libvorbis, buildEnv, libpng
-, fontconfig, freetype, xlibs, makeWrapper, bash, which, gnome3, mesa_glu
+, fontconfig, freetype, xorg, makeWrapper, bash, which, gnome3, mesa_glu
 , mesa_drivers }:
 let
   version = "3.9.2";
   lib-env = buildEnv {
     name = "megaglest-lib-env";
-    paths = [ SDL xlibs.libSM xlibs.libICE xlibs.libX11 xlibs.libXext
+    paths = [ SDL xorg.libSM xorg.libICE xorg.libX11 xorg.libXext
       xercesc openal libvorbis lua libjpeg libpng curl fontconfig ftgl freetype
       stdenv.cc.cc glew mesa_glu mesa_drivers wxGTK ];
   };
@@ -21,7 +21,7 @@ stdenv.mkDerivation {
   src = fetchgit {
     url = "git://github.com/MegaGlest/megaglest-source";
     rev = "refs/tags/${version}";
-    sha256 = "0jdgcpsv16vdxkwym7pw764pggifn4g98f3dzg615xl9h4wkymm0";
+    sha256 = "1406ns1533x5678d91s2xxxv19q7r238zsaxr37c6mv5jrx7s5jv";
   };
 
   buildInputs = [ cmake git curl SDL xercesc openal lua libjpeg wxGTK

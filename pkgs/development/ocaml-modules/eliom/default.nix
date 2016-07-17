@@ -1,31 +1,39 @@
 { stdenv, fetchurl, ocaml, findlib, which, ocsigen_server, ocsigen_deriving,
   js_of_ocaml, ocaml_react, ocaml_lwt, calendar, cryptokit, tyxml,
   ipaddr, ocamlnet, ocaml_ssl, ocaml_pcre, ocaml_optcomp,
-  reactivedata, opam}:
+  reactivedata, opam, ppx_tools, camlp4}:
+
+let ocamlVersion = (stdenv.lib.getVersion ocaml);
+  in
+
+(
+assert stdenv.lib.versionAtLeast ocamlVersion "4";
 
 stdenv.mkDerivation rec
 {
   pname = "eliom";
-  version = "4.1.0";
+  version = "5.0.0";
   name = "${pname}-${version}";
 
   src = fetchurl {
-    url = https://github.com/ocsigen/eliom/archive/4.1.0.tar.gz;
-    sha256 = "10v7mrq3zsbxdlg8k8xif777mbvcdpabvnd1g7p2yqivr7f1qm24";
+    url = "https://github.com/ocsigen/eliom/archive/${version}.tar.gz";
+    sha256 = "1g9wq2qpn0sgzyb6iq0h9afq5p68il4h8pc7jppqsislk87m09k7";
   };
 
   patches = [ ./camlp4.patch ];
 
   buildInputs = [ocaml which ocsigen_server findlib ocsigen_deriving
-                 js_of_ocaml ocaml_optcomp opam];
+                 js_of_ocaml ocaml_optcomp opam ppx_tools camlp4 ];
 
   propagatedBuildInputs = [ ocaml_lwt reactivedata tyxml ipaddr
                             calendar cryptokit ocamlnet ocaml_react ocaml_ssl
                             ocaml_pcre ];
 
+  preConfigure = stdenv.lib.optionalString (!stdenv.lib.versionAtLeast ocamlVersion "4.02") ''
+      export PPX=false
+    '';
+
   installPhase =
-  let ocamlVersion = (builtins.parseDrvName (ocaml.name)).version;
-  in
   ''opam-installer --script --prefix=$out ${pname}.install > install.sh
     sh install.sh
     ln -s $out/lib/${pname} $out/lib/ocaml/${ocamlVersion}/site-lib/
@@ -49,8 +57,8 @@ stdenv.mkDerivation rec
 
     license = stdenv.lib.licenses.lgpl21;
 
-    platforms = ocaml.meta.platforms;
+    platforms = ocaml.meta.platforms or [];
 
     maintainers = [ stdenv.lib.maintainers.gal_bolle ];
   };
-}
+})

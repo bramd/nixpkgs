@@ -1,14 +1,16 @@
 { stdenv, fetchurl, pkgconfig, glib }:
 
 stdenv.mkDerivation rec {
-  name = "nbd-3.11";
+  name = "nbd-3.12.1";
 
   src = fetchurl {
     url = "mirror://sourceforge/nbd/${name}.tar.xz";
-    sha256 = "187jwc43dhxbv9rrszimm3bvwr1hcpyixv82jfd61p0nrds0yhhl";
+    sha256 = "1pkkid657zgjymwxv3fm32cxnq9llfz29rl15vp6mn42vnzbj1di";
   };
 
-  buildInputs = [ pkgconfig glib ] ++ stdenv.lib.optional (stdenv ? glibc) stdenv.glibc.kernelHeaders;
+  buildInputs =
+    [ pkgconfig glib ]
+    ++ stdenv.lib.optional (stdenv ? glibc) stdenv.glibc.linuxHeaders;
 
   postInstall = ''
     mkdir -p "$out/share/doc/${name}"
@@ -25,9 +27,9 @@ stdenv.mkDerivation rec {
 
   meta = {
     homepage = "http://nbd.sourceforge.net";
-    description = "map arbitrary files as block devices over the network";
+    description = "Map arbitrary files as block devices over the network";
     license = stdenv.lib.licenses.gpl2;
-    maintainers = [ stdenv.lib.maintainers.simons ];
+    maintainers = [ stdenv.lib.maintainers.peti ];
     platforms = stdenv.lib.platforms.unix;
   };
 }

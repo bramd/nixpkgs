@@ -1,6 +1,6 @@
-{ stdenv, fetchurl, bash, buildPythonPackage }:
+{ stdenv, fetchurl, bash, buildPythonApplication }:
 
-buildPythonPackage rec {
+buildPythonApplication rec {
   version = "1.3";
   name = "apt-offline-${version}";
 
@@ -20,7 +20,7 @@ buildPythonPackage rec {
   preFixup = ''rm "$out/bin/apt-offline-gui"'';
 
   meta = with stdenv.lib; {
-    description = "offline APT package manager";
+    description = "Offline APT package manager";
     license = licenses.gpl3;
     maintainers = [ maintainers.falsifian ];
     platforms = platforms.linux;

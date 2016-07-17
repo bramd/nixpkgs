@@ -1,4 +1,4 @@
-{ stdenv, fetchurl }:
+{ stdenv, fetchurl, fetchpatch, pkgs }:
 
 let
 
@@ -18,19 +18,33 @@ let
       };
     };
 
-  grsecPatch = { grversion ? "3.1", kversion, revision, branch, sha256 }:
-    { name = "grsecurity-${grversion}-${kversion}";
-      inherit grversion kversion revision;
-      patch = fetchurl {
-        url = "http://grsecurity.net/${branch}/grsecurity-${grversion}-${kversion}-${revision}.patch";
-        inherit sha256;
-      };
-      features.grsecurity = true;
-    };
+  grsecPatch = { grbranch ? "test", grver ? "3.1", kver, grrev, sha256 }: rec {
+    name = "grsecurity-${grver}-${kver}-${grrev}";
 
+    # Pass these along to allow the caller to determine compatibility
+    inherit grver kver grrev;
+
+    patch = fetchurl {
+      # When updating versions/hashes, ALWAYS use the official version; we use
+      # this mirror only because upstream removes sources files immediately upon
+      # releasing a new version ...
+      url = "https://raw.githubusercontent.com/slashbeast/grsecurity-scrape/master/${grbranch}/${name}.patch";
+      inherit sha256;
+    };
+  };
 in
 
 rec {
+
+  link_lguest =
+    { name = "gcc5-link-lguest";
+      patch = ./gcc5-link-lguest.patch;
+    };
+
+  link_apm =
+    { name = "gcc5-link-apm";
+      patch = ./gcc5-link-apm.patch;
+    };
 
   bridge_stp_helper =
     { name = "bridge-stp-helper";
@@ -58,14 +72,14 @@ rec {
       patch = ./mips-ext3-n32.patch;
     };
 
-  ubuntu_fan =
+  ubuntu_fan_4_4 =
     { name = "ubuntu-fan";
-      patch = ./ubuntu-fan-3.patch;
+      patch = ./ubuntu-fan-4.4.patch;
     };
 
-  ubuntu_fan_4 =
-    { name = "ubuntu-fan";
-      patch = ./ubuntu-fan-4.patch;
+  ubuntu_unprivileged_overlayfs =
+    { name = "ubuntu-unprivileged-overlayfs";
+      patch = ./ubuntu-unprivileged-overlayfs.patch;
     };
 
   tuxonice_3_10 = makeTuxonicePatch {
@@ -74,23 +88,22 @@ rec {
     sha256 = "00b1rqgd4yr206dxp4mcymr56ymbjcjfa4m82pxw73khj032qw3j";
   };
 
-  grsecurity_stable = grsecPatch
-    { kversion  = "3.14.51";
-      revision  = "201508181951";
-      branch    = "stable";
-      sha256    = "1sp1gwa7ahzflq7ayb51bg52abrn5zx1hb3pff3axpjqq7vfai6f";
+  grsecurity_3_14 = throw "grsecurity stable is no longer supported";
+
+  grsecurity_4_4 = throw "grsecurity stable is no longer supported";
+
+  grsecurity_testing = grsecPatch
+    { kver   = "4.6.4";
+      grrev  = "201607112205";
+      sha256 = "16j01qqa7yi5yvli1lkl8ffybhy4697nyi18lbl5329zd09xq2ww";
     };
 
-  grsecurity_unstable = grsecPatch
-    { kversion  = "4.1.6";
-      revision  = "201508181953";
-      branch    = "test";
-      sha256    = "1m227k1wb1q588vkgmngcz86k0wpzan6vra67pcx2478mabm3s89";
-    };
-
-  grsec_fix_path =
-    { name = "grsec-fix-path";
-      patch = ./grsec-path.patch;
+  # This patch relaxes grsec constraints on the location of usermode helpers,
+  # e.g., modprobe, to allow calling into the Nix store.
+  grsecurity_nixos_kmod =
+    {
+      name  = "grsecurity-nixos-kmod";
+      patch = ./grsecurity-nixos-kmod.patch;
     };
 
   crc_regression =
@@ -98,4 +111,45 @@ rec {
       patch = ./crc-regression.patch;
     };
 
+  genksyms_fix_segfault =
+    { name = "genksyms-fix-segfault";
+      patch = ./genksyms-fix-segfault.patch;
+    };
+
+
+  chromiumos_Kconfig_fix_entries_3_14 =
+    { name = "Kconfig_fix_entries_3_14";
+      patch = ./chromiumos-patches/fix-double-Kconfig-entry-3.14.patch;
+    };
+
+  chromiumos_Kconfig_fix_entries_3_18 =
+    { name = "Kconfig_fix_entries_3_18";
+      patch = ./chromiumos-patches/fix-double-Kconfig-entry-3.18.patch;
+    };
+
+  chromiumos_no_link_restrictions =
+    { name = "chromium-no-link-restrictions";
+      patch = ./chromiumos-patches/no-link-restrictions.patch;
+    };
+
+  chromiumos_mfd_fix_dependency =
+    { name = "mfd_fix_dependency";
+      patch = ./chromiumos-patches/mfd-fix-dependency.patch;
+    };
+  qat_common_Makefile =
+    { name = "qat_common_Makefile";
+      patch = ./qat_common_Makefile.patch;
+    };
+
+  hiddev_CVE_2016_5829 =
+    { name = "hiddev_CVE_2016_5829";
+      patch = fetchpatch {
+        url = "https://sources.debian.net/data/main/l/linux/4.6.3-1/debian/patches/bugfix/all/HID-hiddev-validate-num_values-for-HIDIOCGUSAGES-HID.patch";
+        sha256 = "14rm1qr87p7a5prz8g5fwbpxzdp3ighj095x8rvhm8csm20wspyy";
+      };
+    };
+  ecryptfs_fix_mmap_bug =
+    { name = "ecryptfs_fix_mmap_bug";
+      patch = ./ecryptfs-fix-mmap-bug.patch;
+    };
 }

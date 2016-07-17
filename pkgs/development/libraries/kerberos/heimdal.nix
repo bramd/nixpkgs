@@ -11,19 +11,20 @@ let
 in
 with stdenv.lib;
 stdenv.mkDerivation rec {
-  name = "${type}heimdal-2015-06-17";
+  name = "${type}heimdal-2015-09-13";
 
   src = fetchFromGitHub {
     owner = "heimdal";
     repo = "heimdal";
-    rev = "be63a2914adcbea7d42d56e674ee6edb4883ebaf";
-    sha256 = "147gv49gmy94y6f0x1vx523qni0frgcp3r7fill0r06rkfgfzc0j";
+    rev = "c81572ab5dcee3062e715b9e25ca7a20f6ec456b";
+    sha256 = "1r60i4v6y5lpll0l2qpn0ycp6q6f1xjg7k1csi547zls8k96yk9s";
   };
 
   nativeBuildInputs = [ autoreconfHook pkgconfig python perl yacc flex ]
     ++ (with perlPackages; [ JSON ])
     ++ optional (!libOnly) texinfo;
-  buildInputs = [ libcap_ng sqlite openssl db libedit ]
+  buildInputs = optionals (!stdenv.isFreeBSD) [ libcap_ng db ]
+    ++ [ sqlite openssl libedit ]
     ++ optionals (!libOnly) [ openldap pam ];
 
   ## ugly, X should be made an option
@@ -31,14 +32,15 @@ stdenv.mkDerivation rec {
     "--sysconfdir=/etc"
     "--localstatedir=/var"
     "--enable-hdb-openldap-module"
-    "--with-capng"
-    "--with-sqlite3=${sqlite}"
-    "--with-berkeley-db=${db}"
+    "--with-sqlite3=${sqlite.dev}"
     "--with-libedit=${libedit}"
-    "--with-openssl=${openssl}"
+    "--with-openssl=${openssl.dev}"
     "--without-x"
+    "--with-berkeley-db=${db}"
   ] ++ optionals (!libOnly) [
-    "--with-openldap=${openldap}"
+    "--with-openldap=${openldap.dev}"
+  ] ++ optionals (!stdenv.isFreeBSD) [
+    "--with-capng"
   ];
 
   buildPhase = optionalString libOnly ''
@@ -75,12 +77,15 @@ stdenv.mkDerivation rec {
     rmdir $out/libexec
   '';
 
-  enableParallelBuilding = true;
+  # Issues with hydra
+  #  In file included from hxtool.c:34:0:
+  #  hx_locl.h:67:25: fatal error: pkcs10_asn1.h: No such file or directory
+  #enableParallelBuilding = true;
 
   meta = {
     description = "An implementation of Kerberos 5 (and some more stuff)";
     license = licenses.bsd3;
-    platforms = platforms.linux;
+    platforms = platforms.linux ++ platforms.freebsd;
     maintainers = with maintainers; [ wkennington ];
   };
 

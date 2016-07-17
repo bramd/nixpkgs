@@ -1,22 +1,24 @@
-{ stdenv, fetchgit, python }:
+{ stdenv, fetchFromGitHub, python }:
 
 let
-  tag = "1.29.10";
+  rev = "1.36.4";
 in
 
 stdenv.mkDerivation rec {
-  name = "emscripten-fastcomp-${tag}";
+  name = "emscripten-fastcomp-${rev}";
 
-  srcFC = fetchgit {
-    url = git://github.com/kripken/emscripten-fastcomp;
-    rev = "refs/tags/${tag}";
-    sha256 = "eee0f884c7e10e1b869b9d3afbb03bf69c63ec0560b136e3e8cd64ca00a41653";
+  srcFC = fetchFromGitHub {
+    owner = "kripken";
+    repo = "emscripten-fastcomp";
+    sha256 = "0838rl0n9hyq5dd0gmj5rvigbmk5mhrhzyjk0zd8mjs2mk8z510l";
+    inherit rev;
   };
 
-  srcFL = fetchgit {
-    url = git://github.com/kripken/emscripten-fastcomp-clang;
-    rev = "refs/tags/${tag}";
-    sha256 = "22c48e85dfacd9f2349d37fb421f0f848b65fc7b39e66984d04349ee3271667c";
+  srcFL = fetchFromGitHub {
+    owner = "kripken";
+    repo = "emscripten-fastcomp-clang";
+    sha256 = "169hfabamv3jmf88flhl4scwaxdh24196gwpz3sdb26lzcns519q";
+    inherit rev;
   };
 
   buildInputs = [ python ];
@@ -33,10 +35,12 @@ stdenv.mkDerivation rec {
     make
     cp -a Release/bin $out
   '';
+
   meta = with stdenv.lib; {
     homepage = https://github.com/kripken/emscripten-fastcomp;
-    description = "emscripten llvm";
-    maintainers = with maintainers; [ bosu ];
+    description = "Emscripten llvm";
+    platforms = platforms.all;
+    maintainers = with maintainers; [ qknight matthewbauer ];
     license = stdenv.lib.licenses.ncsa;
   };
 }

@@ -1,33 +1,41 @@
-{ stdenv, fetchurl, perl, gmp ? null
+{ lib, stdenv, fetchurl, perl, xz, gmp ? null
 , aclSupport ? false, acl ? null
 , selinuxSupport? false, libselinux ? null, libsepol ? null
 , autoconf, automake114x, texinfo
+, withPrefix ? false
+, singleBinary ? "symlinks" # you can also pass "shebangs" or false
 }:
 
 assert aclSupport -> acl != null;
 assert selinuxSupport -> libselinux != null && libsepol != null;
 
-
-with { inherit (stdenv.lib) optional optionals optionalString optionalAttrs; };
+with lib;
 
 let
   self = stdenv.mkDerivation rec {
-    name = "coreutils-8.24";
+    name = "coreutils-8.25";
 
     src = fetchurl {
       url = "mirror://gnu/coreutils/${name}.tar.xz";
-      sha256 = "0w11jw3fb5sslf0f72kxy7llxgk1ia3a6bcw0c9kmvxrlj355mx2";
+      sha256 = "11yfrnb94xzmvi4lhclkcmkqsbhww64wf234ya1aacjvg82prrii";
     };
 
-    patches = if stdenv.isCygwin then [ ./coreutils-8.23-4.cygwin.patch ] else null;
+    patches = optional stdenv.isCygwin ./coreutils-8.23-4.cygwin.patch;
 
     # The test tends to fail on btrfs and maybe other unusual filesystems.
-    postPatch = stdenv.lib.optionalString (!stdenv.isDarwin) ''
+    postPatch = optionalString (!stdenv.isDarwin) ''
       sed '2i echo Skipping dd sparse test && exit 0' -i ./tests/dd/sparse.sh
       sed '2i echo Skipping cp sparse test && exit 0' -i ./tests/cp/sparse.sh
     '';
 
-    nativeBuildInputs = [ perl ];
+    outputs = [ "out" "info" ];
+
+    nativeBuildInputs = [ perl xz.bin ];
+    configureFlags =
+      optional (singleBinary != false)
+        ("--enable-single-binary" + optionalString (isString singleBinary) "=${singleBinary}")
+      ++ optional stdenv.isSunOS "ac_cv_func_inotify_init=no";
+
     buildInputs = [ gmp ]
       ++ optional aclSupport acl
       ++ optionals stdenv.isCygwin [ autoconf automake114x texinfo ]   # due to patch
@@ -64,15 +72,26 @@ let
     # (http://thread.gmane.org/gmane.comp.gnu.core-utils.bugs/19025),
     # Darwin (http://thread.gmane.org/gmane.comp.gnu.core-utils.bugs/19351),
     # and {Open,Free}BSD.
-    doCheck = stdenv ? glibc;
+    # With non-standard storeDir: https://github.com/NixOS/nix/issues/512
+    doCheck = stdenv ? glibc && builtins.storeDir == "/nix/store";
 
     # Saw random failures like ‘help2man: can't get '--help' info from
     # man/sha512sum.td/sha512sum’.
     enableParallelBuilding = false;
 
     NIX_LDFLAGS = optionalString selinuxSupport "-lsepol";
+    FORCE_UNSAFE_CONFIGURE = optionalString stdenv.isSunOS "1";
 
     makeFlags = optionalString stdenv.isDarwin "CFLAGS=-D_FORTIFY_SOURCE=0";
+
+    # e.g. ls -> gls; grep -> ggrep
+    postFixup = optionalString withPrefix
+      ''
+        (
+          cd "$out/bin"
+          find * -type f -executable -exec mv {} g{} \;
+        )
+      '';
 
     meta = {
       homepage = http://www.gnu.org/software/coreutils/;
@@ -85,15 +104,12 @@ let
         operating system.
       '';
 
-      license = stdenv.lib.licenses.gpl3Plus;
+      license = licenses.gpl3Plus;
 
-      platforms = stdenv.lib.platforms.all;
+      platforms = platforms.all;
 
-      maintainers = [ stdenv.lib.maintainers.eelco ];
+      maintainers = [ maintainers.eelco ];
     };
   };
 in
   self
-  // stdenv.lib.optionalAttrs (stdenv.system == "armv7l-linux" || stdenv.isSunOS) {
-    FORCE_UNSAFE_CONFIGURE = 1;
-  }

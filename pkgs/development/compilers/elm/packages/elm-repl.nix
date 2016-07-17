@@ -1,26 +1,26 @@
 { mkDerivation, base, binary, bytestring, bytestring-trie, cmdargs
 , containers, directory, elm-compiler, elm-package, fetchgit
-, filepath, haskeline, HUnit, mtl, parsec, process, QuickCheck
-, stdenv, test-framework, test-framework-hunit
-, test-framework-quickcheck2
+, filepath, haskeline, HUnit, mtl, parsec, QuickCheck, stdenv
+, test-framework, test-framework-hunit, test-framework-quickcheck2
+, text
 }:
 mkDerivation {
   pname = "elm-repl";
-  version = "0.4.2";
+  version = "0.17.1";
   src = fetchgit {
     url = "https://github.com/elm-lang/elm-repl";
-    sha256 = "a6eadbef7886c4c65243723f101910909bb0d53b2c48454ed7b39cf700f9649c";
-    rev = "0c434fdb24b86a93b06c33c8f26857ce47caf165";
+    sha256 = "0nh2yfr0bi4rg1kak1gjaczpq56y1nii05b5y7hn6n4w651jkm28";
+    rev = "413ac0d4ee43c8542afd3041bbb7b8c903cd3d30";
   };
   isLibrary = false;
   isExecutable = true;
-  buildDepends = [
+  executableHaskellDepends = [
     base binary bytestring bytestring-trie cmdargs containers directory
-    elm-compiler elm-package filepath haskeline mtl parsec process
+    elm-compiler elm-package filepath haskeline mtl parsec text
   ];
-  testDepends = [
+  testHaskellDepends = [
     base bytestring bytestring-trie cmdargs directory elm-compiler
-    elm-package filepath haskeline HUnit mtl parsec process QuickCheck
+    elm-package filepath haskeline HUnit mtl parsec QuickCheck
     test-framework test-framework-hunit test-framework-quickcheck2
   ];
   jailbreak = true;

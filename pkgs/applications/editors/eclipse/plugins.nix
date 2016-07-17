@@ -106,16 +106,16 @@ rec {
 
   anyedittools = buildEclipsePlugin rec {
     name = "anyedit-${version}";
-    version = "2.4.15.201504172030";
+    version = "2.6.0.201511291145";
 
     srcFeature = fetchurl {
       url = "http://andrei.gmxhome.de/eclipse/features/AnyEditTools_${version}.jar";
-      sha256 = "19hbwgqn02ghflbcp5cw3qy203mym5kwgzq4xrn0xcl8ckl5s2pp";
+      sha256 = "1vllci75qcd28b6hn2jz29l6cabxx9ql5i6l9cwq9rxp49dhc96b";
     };
 
     srcPlugin = fetchurl {
-      url = "http://dl.bintray.com/iloveeclipse/plugins/de.loskutov.anyedit.AnyEditTools_${version}.jar";
-      sha256 = "1i3ghf2mhdfhify30hlyxqmyqcp40pkd5zhsiyg6finn4w81sxv2";
+      url = "https://github.com/iloveeclipse/anyedittools/releases/download/2.6.0/de.loskutov.anyedit.AnyEditTools_${version}.jar";
+      sha256 = "0mgq0ylfa7srjf7azyx0kbahlsjf0sdpazqphzx4f0bfn1l328s4";
     };
 
     meta = with stdenv.lib; {
@@ -127,14 +127,37 @@ rec {
     };
   };
 
+  bytecode-outline = buildEclipsePlugin rec {
+    name = "bytecode-outline-${version}";
+    version = "2.4.3";
+
+    srcFeature = fetchurl {
+      url = "http://andrei.gmxhome.de/eclipse/features/de.loskutov.BytecodeOutline.feature_${version}.jar";
+      sha256 = "0imhwp73gxy1y5d5gpjgd05ywn0xg3vqc5980wcx3fd51g4ifc67";
+    };
+
+    srcPlugin = fetchurl {
+      url = "http://dl.bintray.com/iloveeclipse/plugins/de.loskutov.BytecodeOutline_${version}.jar";
+      sha256 = "0230i88mvvxhn11m9c5mv3494zhh1xkxyfyva9qahck0wbqwpzkw";
+    };
+
+    meta = with stdenv.lib; {
+      homepage = http://andrei.gmxhome.de/bytecode/;
+      description = "Shows disassembled bytecode of current java editor or class file";
+      license = licenses.bsd2;
+      platforms = platforms.all;
+      maintainers = [ maintainers.rycee ];
+    };
+  };
+
   cdt = buildEclipseUpdateSite rec {
     name = "cdt-${version}";
-    version = "8.7.0";
+    version = "8.8.0";
 
     src = fetchzip {
       stripRoot = false;
-      url = "http://www.eclipse.org/downloads/download.php?r=1&nf=1&file=/tools/cdt/releases/8.7/${name}.zip";
-      sha256 = "0qpcjcl6n98x7ys4qz8p1x5hhk2ydrgh8w3r1kqk0zc7liqrx7vg";
+      url = "https://www.eclipse.org/downloads/download.php?r=1&nf=1&file=/tools/cdt/releases/8.8/${name}.zip";
+      sha256 = "1i1m7g5128q21njgrkiw71y4vi4aqzz8xdd4iv80j3nsvhbv6cnm";
     };
 
     meta = with stdenv.lib; {
@@ -148,12 +171,12 @@ rec {
 
   checkstyle = buildEclipseUpdateSite rec {
     name = "checkstyle-${version}";
-    version = "6.9.0.201508291549";
+    version = "6.19.0.201606092149";
 
     src = fetchzip {
       stripRoot = false;
-      url = "mirror://sourceforge/project/eclipse-cs/Eclipse%20Checkstyle%20Plug-in/6.9.0/net.sf.eclipsecs-updatesite_${version}-bin.zip";
-      sha256 = "0r6lfbyhqcwa628i6wjp9d6mfp4jnc46bmwp9j7v02m79f8wx74g";
+      url = "mirror://sourceforge/project/eclipse-cs/Eclipse%20Checkstyle%20Plug-in/6.19.0/net.sf.eclipsecs-updatesite_${version}.zip";
+      sha256 = "0d066fihvdkisic0lsdvh947yd2v20xc8h4aknfcyg2mq3xzi0x7";
     };
 
     meta = with stdenv.lib; {
@@ -186,6 +209,49 @@ rec {
       license = licenses.epl10;
       platforms = platforms.all;
       maintainers = [ maintainers.rycee ];
+    };
+  };
+
+  cup = buildEclipsePluginBase rec {
+    name = "cup-${version}";
+    version = "1.1.0.201604221613";
+    version_ = "1.0.0.201604221613";
+
+    srcFeature = fetchurl {
+      url = "http://www2.in.tum.de/projects/cup/eclipse/features/CupEclipsePluginFeature_${version}.jar";
+      sha256 = "13nnsf0cqg02z3af6xg45rhcgiffsibxbx6h1zahjv7igvqgkyna";
+    };
+
+    srcPlugin1 = fetchurl {
+      url = "http://www2.in.tum.de/projects/cup/eclipse/plugins/CupReferencedLibraries_${version_}.jar";
+      sha256 = "0kif8kivrysprva1pxzajm88gi967qf7idhb6ga2xpvsdcris91j";
+    };
+
+    srcPlugin2 = fetchurl {
+      url = "http://www2.in.tum.de/projects/cup/eclipse/plugins/de.tum.in.www2.CupPlugin_${version}.jar";
+      sha256 = "022phbrsny3gb8npb6sxyqqxacx138q5bd7dq3gqxh3kprx5chbl";
+    };
+
+    srcs = [ srcFeature srcPlugin1 srcPlugin2 ];
+
+    propagatedBuildInputs = [ zest ];
+
+    phases = [ "installPhase" ];
+
+    installPhase = ''
+      dropinDir="$out/eclipse/dropins/${name}"
+      mkdir -p $dropinDir/features
+      unzip ${srcFeature} -d $dropinDir/features/
+      mkdir -p $dropinDir/plugins
+      cp -v ${srcPlugin1} $dropinDir/plugins/''${srcPlugin1#*-}
+      cp -v ${srcPlugin2} $dropinDir/plugins/''${srcPlugin2#*-}
+    '';
+
+    meta = with stdenv.lib; {
+      homepage = http://www2.cs.tum.edu/projects/cup/eclipse.php;
+      description = "IDE for developing CUP based parsers";
+      platforms = platforms.all;
+      maintainers = [ maintainers.romildo ];
     };
   };
 
@@ -256,12 +322,12 @@ rec {
 
   gnuarmeclipse = buildEclipseUpdateSite rec {
     name = "gnuarmeclipse-${version}";
-    version = "2.8.1-201504061754";
+    version = "2.11.1-201512141335";
 
     src = fetchzip {
       stripRoot = false;
-      url = "mirror://sourceforge/project/gnuarmeclipse/Current%20Releases/2.x/ilg.gnuarmeclipse.repository-${version}.zip";
-      sha256 = "08jsnyis1ry62cidr9sl11ylyxbkwh834nlhx6qp31gh1l439px9";
+      url = "https://github.com/gnuarmeclipse/plug-ins/releases/download/v${version}/ilg.gnuarmeclipse.repository-${version}.zip";
+      sha256 = "1ijvnahfw2wc860la7kj8b52z2sfm8k1yk62bl0d4lq60y3aycg9";
     };
 
     meta = with stdenv.lib; {
@@ -275,12 +341,12 @@ rec {
 
   jdt = buildEclipseUpdateSite rec {
     name = "jdt-${version}";
-    version = "4.5";
+    version = "4.5.2";
 
     src = fetchzip {
       stripRoot = false;
-      url = "https://www.eclipse.org/downloads/download.php?r=1&nf=1&file=/eclipse/downloads/drops4/R-4.5-201506032000/org.eclipse.jdt-4.5.zip";
-      sha256 = "0zrdn26f7qsms2xfiyc049bhhh0czsbf989pgyq736b8hfmmh9iy";
+      url = "https://www.eclipse.org/downloads/download.php?r=1&nf=1&file=/eclipse/downloads/drops4/R-4.5.2-201602121500/org.eclipse.jdt-4.5.2.zip";
+      sha256 = "0v4cfq4z62k60l8l014wqgbjnd6a93dwcp6qvr5y7q1v9jr2na5g";
     };
 
     meta = with stdenv.lib; {
@@ -294,11 +360,11 @@ rec {
 
   scala = buildEclipseUpdateSite rec {
     name = "scala-${version}";
-    version = "4.1.1";
+    version = "4.4.1.201605041056";
 
     src = fetchzip {
       url = "http://download.scala-ide.org/sdk/lithium/e44/scala211/stable/update-site.zip";
-      sha256 = "0x5cdcm7p2ynz5ryw041gb150sripf9i4m1yrfqklnn581yqm6y8";
+      sha256 = "13xgx2rwlll0l4bs0g6gyvrx5gcc0125vzn501fdj0wv2fqxn5lw";
     };
 
     meta = with stdenv.lib; {
@@ -312,16 +378,16 @@ rec {
 
   testng = buildEclipsePlugin rec {
     name = "testng-${version}";
-    version = "6.9.5.201508210528";
+    version = "6.9.11.201604020423";
 
     srcFeature = fetchurl {
-      url = "http://beust.com/eclipse/features/org.testng.eclipse_${version}.jar";
-      sha256 = "0xalm7pvj0vx61isgkjkgj073b4hlqlzx6xnkrnnnyi0r212a26j";
+      url = "http://beust.com/eclipse-old/eclipse_${version}/features/org.testng.eclipse_${version}.jar";
+      sha256 = "1cp7f6f0525wqwjj4pyrp0q0ii7zcd5gwd5acaq9jjb13xgw8vav";
     };
 
     srcPlugin = fetchurl {
-      url = "http://beust.com/eclipse/plugins/org.testng.eclipse_${version}.jar";
-      sha256 = "07wmivfvfsq6cjw5zwciajdxkfa7drk108jsr44gf4i1bv9fj055";
+      url = "http://beust.com/eclipse-old/eclipse_${version}/plugins/org.testng.eclipse_${version}.jar";
+      sha256 = "04m07cdfw0isp27ykx6dbrlcdw33rxww7vnavanygxxnlpyvyas3";
     };
 
     meta = with stdenv.lib; {
@@ -330,6 +396,23 @@ rec {
       license = licenses.asl20;
       platforms = platforms.all;
       maintainers = [ maintainers.rycee ];
+    };
+  };
+
+  zest = buildEclipseUpdateSite rec {
+    name = "zest-${version}";
+    version = "3.9.101";
+
+    src = fetchurl {
+      url = "http://archive.eclipse.org/tools/gef/downloads/drops/${version}/R201408150207/GEF-${name}.zip";
+      sha256 = "01scn7cmcrjcp387spjm8ifgwrwwi77ypildandbisfvhj3qqs7m";
+    };
+
+    meta = with stdenv.lib; {
+      homepage = https://www.eclipse.org/gef/zest/;
+      description = "The Eclipse Visualization Toolkit";
+      platforms = platforms.all;
+      maintainers = [ maintainers.romildo ];
     };
   };
 

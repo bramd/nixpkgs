@@ -3,10 +3,10 @@ let
   s = # Generated upstream information
   rec {
     baseName="apache-jena";
-    version = "3.0.0";
+    version = "3.1.0";
     name="${baseName}-${version}";
     url="http://archive.apache.org/dist/jena/binaries/apache-jena-${version}.tar.gz";
-    sha256 = "1pqg27m295v7v456pidb0fq5120blkc466pdzksqxqcjrwivq4kb";
+    sha256 = "1nfb567v9s17j31l75v5gkdalmkrqba7ahz3z8gzz4kpmdzdhajk";
   };
   buildInputs = [
     makeWrapper
@@ -33,6 +33,6 @@ stdenv.mkDerivation {
     homepage = "http://jena.apache.org";
     downloadPage = "http://archive.apache.org/dist/jena/binaries/";
     updateWalker = true;
-    downloadURLRegex = "apache-jena-.*[.]tar[.]gz\$";
+    downloadURLRegexp = "apache-jena-.*[.]tar[.]gz\$";
   };
 }

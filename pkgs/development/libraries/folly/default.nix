@@ -1,27 +1,26 @@
-{ stdenv, fetchFromGitHub, autoreconfHook, boost, libevent, double_conversion, glog
+{ stdenv, fetchFromGitHub, fetchpatch, autoreconfHook, boost, libevent, double_conversion, glog
 , google-gflags, python, libiberty, openssl }:
 
 stdenv.mkDerivation rec {
-  version = "0.52.0";
   name = "folly-${version}";
+  version = "2016-04-29";
 
   src = fetchFromGitHub {
     owner = "facebook";
     repo = "folly";
-    rev = "v${version}";
-    sha256 = "16g3hpy1gy56zqnhwzkvzzpm6dgm01qa9yaigmrqr9b59c3k6cqf";
+    rev = "b31eb722e444ab0293a73fe9de3f94e657ca6de9";
+    sha256 = "0s95y0wnz4xbrkzbiksnb0n0d0qrkcsbssznng57kwlq8jlfka24";
   };
 
-  buildInputs = [ libiberty boost.lib libevent double_conversion glog google-gflags openssl ];
+  nativeBuildInputs = [ autoreconfHook python ];
+  buildInputs = [ libiberty boost libevent double_conversion glog google-gflags openssl ];
 
-  nativeBuildInputs = [ autoreconfHook python boost ];
-
-  postUnpack = "sourceRoot=\${sourceRoot}/folly";
+  postPatch = "cd folly";
   preBuild = ''
     patchShebangs build
   '';
 
-  configureFlags = [ "--with-boost-libdir=${boost.lib}/lib" ];
+  configureFlags = [ "--with-boost-libdir=${boost.out}/lib" ];
 
   enableParallelBuilding = true;
 

@@ -12,6 +12,7 @@
 , version
 , zlib
 , compiler-rt_src
+, debugVersion ? false
 }:
 
 let
@@ -41,11 +42,11 @@ in stdenv.mkDerivation rec {
   '';
 
   cmakeFlags = with stdenv; [
-    "-DCMAKE_BUILD_TYPE=Release"
+    "-DCMAKE_BUILD_TYPE=${if debugVersion then "Debug" else "Release"}"
     "-DLLVM_BUILD_TESTS=ON"
     "-DLLVM_ENABLE_FFI=ON"
     "-DLLVM_REQUIRES_RTTI=1"
-    "-DLLVM_BINUTILS_INCDIR=${binutils}/include"
+    "-DLLVM_BINUTILS_INCDIR=${binutils.dev or binutils}/include"
     "-DCMAKE_CXX_FLAGS=-std=c++11"
   ] ++ stdenv.lib.optional (!isDarwin) "-DBUILD_SHARED_LIBS=ON";
 

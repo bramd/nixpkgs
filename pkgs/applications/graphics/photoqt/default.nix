@@ -1,19 +1,28 @@
-{ stdenv, fetchurl, cmake, qt5, exiv2, graphicsmagick }:
+{ stdenv, fetchurl, cmake, makeQtWrapper, exiv2, graphicsmagick
+, qtbase, qtdeclarative, qtmultimedia, qtquickcontrols, qttools
+}:
 
 let
-  version = "1.2";
+  version = "1.3";
 in
 stdenv.mkDerivation rec {
   name = "photoqt-${version}";
   src = fetchurl {
     url = "http://photoqt.org/pkgs/photoqt-${version}.tar.gz";
-    sha256 = "1dnnj2h3j517hcbjxlzk035fis44wdmqq7dvhwpmq1rcr0v32aaa";
+    sha256 = "0j2kvxfb5pd9abciv161nkcsyam6n8kfqs8ymwj2mxiqflwbmfl1";
   };
 
-  buildInputs = [ cmake qt5.base qt5.tools exiv2 graphicsmagick ];
+  buildInputs = [
+    cmake makeQtWrapper qtbase qtquickcontrols qttools exiv2 graphicsmagick
+    qtmultimedia qtdeclarative
+  ];
 
   preConfigure = ''
     export MAGICK_LOCATION="${graphicsmagick}/include/GraphicsMagick"
+  '';
+
+  postInstall = ''
+    wrapQtProgram $out/bin/photoqt
   '';
 
   meta = {

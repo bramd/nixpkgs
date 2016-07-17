@@ -1,4 +1,4 @@
-args: with args;
+args @ {texLive, unzip, ...}: with args;
 rec {
   version = "1.5.1";
   name = "moderncv-${version}";
@@ -17,9 +17,7 @@ rec {
   '') ["minInit" "addInputs" "doUnpack" "defEnsureDir"];
 
   meta = {
-    description = "the moderncv class for TeXLive";
-    maintainers = [ args.lib.maintainers.simons ];
-
+    description = "The moderncv class for TeXLive";
     # Actually, arch-independent..
     hydraPlatforms = [];
   };

@@ -1,4 +1,5 @@
 { stdenv
+, lib
 , fetchurl
 , zlib
 , alsaLib
@@ -20,6 +21,7 @@
 , atk
 , gdk_pixbuf
 , nss
+, unzip
 , debug ? false
 
 /* you have to add ~/mm.cfg :
@@ -34,62 +36,97 @@
 
 }:
 
-let
-  # -> http://get.adobe.com/flashplayer/
-  version = "11.2.202.508";
+/* When updating this package, test that the following derivations build:
 
-  src =
-    if stdenv.system == "x86_64-linux" then
-      if debug then
-        # no plans to provide a x86_64 version:
-        # http://labs.adobe.com/technologies/flashplayer10/faq.html
-        throw "no x86_64 debugging version available"
-      else rec {
-        inherit version;
-        url = "http://fpdownload.adobe.com/get/flashplayer/pdc/${version}/install_flash_player_11_linux.x86_64.tar.gz";
-        sha256 = "1i0301vnz94pxcwm9wk1jjyv7gwywy6p7z26ikd5cg259myxbg75";
-      }
-    else if stdenv.system == "i686-linux" then
-      if debug then
-        throw "flash debugging version is outdated and probably broken" /* {
-        # The debug version also contains a player
-        version = "11.1";
-        url = http://fpdownload.adobe.com/pub/flashplayer/updaters/11/flashplayer_11_plugin_debug.i386.tar.gz;
-        sha256 = "0jn7klq2cyqasj6nxfka2l8nsf7sn7hi6443nv6dd2sb3g7m6x92";
-      }*/
-      else rec {
-        inherit version;
-        url = "http://fpdownload.adobe.com/get/flashplayer/pdc/${version}/install_flash_player_11_linux.i386.tar.gz";
-        sha256 = "1483bi34ymchv1cqg57whxhlrhhvwhcw33zjgwzmy7bacxbkj9ia";
-      }
+   * flashplayer
+   * flashplayer-standalone
+   * flashplayer-standalone-debugger
+*/
+
+let
+  arch =
+    if      stdenv.system == "x86_64-linux" then
+      if    debug then throw "no x86_64 debugging version available"
+      else  "64bit"
+    else if stdenv.system == "i686-linux"   then
+      if    debug then "32bit_debug"
+      else             "32bit"
     else throw "Flash Player is not supported on this platform";
 
+  suffix =
+    if      stdenv.system == "x86_64-linux" then
+      if    debug then throw "no x86_64 debugging version available"
+      else             "_linux.x86_64"
+    else if stdenv.system == "i686-linux"   then
+      if    debug then "_linux_debug.i386"
+      else             "_linux.i386"
+    else throw "Flash Player is not supported on this platform";
+
+  saname =
+    if debug then "flashplayerdebugger"
+    else          "flashplayer";
+
+  is-i686 = (stdenv.system == "i686-linux");
 in
+stdenv.mkDerivation rec {
+  name = "flashplayer-${version}";
+  version = "11.2.202.632";
 
-stdenv.mkDerivation {
-  name = "flashplayer-${src.version}";
+  src = fetchurl {
+    url = "https://fpdownload.macromedia.com/pub/flashplayer/installers/archive/fp_${version}_archive.zip";
+    sha256 = "0nf2d7jn8g6bp9vilkwwkkh6pm05fg3h73njsn4yvx3285k73lpn";
+  };
 
-  builder = ./builder.sh;
+  nativeBuildInputs = [ unzip ];
 
-  src = fetchurl { inherit (src) url sha256; };
+  sourceRoot = ".";
 
-  inherit zlib alsaLib;
+  postUnpack = ''
+    cd *${arch}
+
+    tar -xvzf *${suffix}.tar.gz
+
+    ${lib.optionalString is-i686 ''
+       tar -xvzf *_sa[_.]*.tar.gz
+    ''}
+  '';
+
+  dontStrip = true;
+  dontPatchELF = true;
+
+  outputs = [ "out" ] ++ lib.optional is-i686 "sa";
+
+  installPhase = ''
+    mkdir -p $out/lib/mozilla/plugins
+    cp -pv libflashplayer.so $out/lib/mozilla/plugins
+
+    patchelf --set-rpath "$rpath" $out/lib/mozilla/plugins/libflashplayer.so
+
+    ${lib.optionalString is-i686 ''
+      install -Dm755 ${saname} $sa/bin/flashplayer
+
+      patchelf \
+        --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) \
+        --set-rpath "$rpath" \
+        $sa/bin/flashplayer
+    ''}
+  '';
 
   passthru = {
     mozillaPlugin = "/lib/mozilla/plugins";
   };
 
-  rpath = stdenv.lib.makeLibraryPath
+  rpath = lib.makeLibraryPath
     [ zlib alsaLib curl nspr fontconfig freetype expat libX11
       libXext libXrender libXcursor libXt gtk glib pango atk cairo gdk_pixbuf
       libvdpau nss
     ];
 
-  buildPhase = ":";
-
   meta = {
     description = "Adobe Flash Player browser plugin";
     homepage = http://www.adobe.com/products/flashplayer/;
     license = stdenv.lib.licenses.unfree;
+    maintainers = [];
+    platforms = [ "x86_64-linux" "i686-linux" ];
   };
 }

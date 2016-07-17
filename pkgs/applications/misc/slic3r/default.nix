@@ -3,20 +3,20 @@
 }:
 
 stdenv.mkDerivation rec {
-  version = "1.2.7";
+  version = "1.2.9";
   name = "slic3r-${version}";
 
   src = fetchgit {
     url = "git://github.com/alexrj/Slic3r";
     rev = "refs/tags/${version}";
-    sha256 = "1bybbl8b0lfh9wkn1k9cxd11hlc5064wzh0fk6zdmc9vnnay399i";
+    sha256 = "1z8h11k29b7z49z5k8ikyfiijyycy1q3krlzi8hfd0vdybvymw21";
   };
 
   buildInputs = with perlPackages; [ perl makeWrapper which
     EncodeLocale MathClipper ExtUtilsXSpp threads
     MathConvexHullMonotoneChain MathGeometryVoronoi MathPlanePath Moo
     IOStringy ClassXSAccessor Wx GrowlGNTP NetDBus ImportInto XMLSAX
-    ExtUtilsMakeMaker OpenGL WxGLCanvas
+    ExtUtilsMakeMaker OpenGL WxGLCanvas ModuleBuild
   ];
 
   desktopItem = makeDesktopItem {

@@ -1,14 +1,15 @@
-{ stdenv, fetchurl, fetchpatch, ghc, perl, gmp, ncurses, libiconv, binutils, coreutils
+{ stdenv, fetchurl, fetchpatch, bootPkgs, perl, gmp, ncurses, libiconv, binutils, coreutils
 , libxml2, libxslt, docbook_xsl, docbook_xml_dtd_45, docbook_xml_dtd_42, hscolour
 }:
 
 let
+  inherit (bootPkgs) ghc;
 
   buildMK = ''
-    libraries/integer-gmp_CONFIGURE_OPTS += --configure-option=--with-gmp-libraries="${gmp}/lib"
-    libraries/integer-gmp_CONFIGURE_OPTS += --configure-option=--with-gmp-includes="${gmp}/include"
-    libraries/terminfo_CONFIGURE_OPTS += --configure-option=--with-curses-includes="${ncurses}/include"
-    libraries/terminfo_CONFIGURE_OPTS += --configure-option=--with-curses-libraries="${ncurses}/lib"
+    libraries/integer-gmp_CONFIGURE_OPTS += --configure-option=--with-gmp-libraries="${gmp.out}/lib"
+    libraries/integer-gmp_CONFIGURE_OPTS += --configure-option=--with-gmp-includes="${gmp.dev}/include"
+    libraries/terminfo_CONFIGURE_OPTS += --configure-option=--with-curses-includes="${ncurses.dev}/include"
+    libraries/terminfo_CONFIGURE_OPTS += --configure-option=--with-curses-libraries="${ncurses.out}/lib"
     ${stdenv.lib.optionalString stdenv.isDarwin ''
       libraries/base_CONFIGURE_OPTS += --configure-option=--with-iconv-includes="${libiconv}/include"
       libraries/base_CONFIGURE_OPTS += --configure-option=--with-iconv-libraries="${libiconv}/lib"
@@ -30,6 +31,8 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
+  outputs = [ "out" "doc" ];
+
   preConfigure = ''
     echo >mk/build.mk "${buildMK}"
     sed -i -e 's|-isysroot /Developer/SDKs/MacOSX10.5.sdk||' configure
@@ -41,7 +44,8 @@ stdenv.mkDerivation rec {
 
   configureFlags = [
     "--with-gcc=${stdenv.cc}/bin/cc"
-    "--with-gmp-includes=${gmp}/include" "--with-gmp-libraries=${gmp}/lib"
+    "--with-gmp-includes=${gmp.dev}/include" "--with-gmp-libraries=${gmp.out}/lib"
+    "--datadir=$doc/share/doc/ghc"
   ];
 
   # required, because otherwise all symbols from HSffi.o are stripped, and
@@ -60,10 +64,14 @@ stdenv.mkDerivation rec {
     done
   '';
 
+  passthru = {
+    inherit bootPkgs;
+  };
+
   meta = {
     homepage = "http://haskell.org/ghc";
     description = "The Glasgow Haskell Compiler";
-    maintainers = with stdenv.lib.maintainers; [ marcweber andres simons ];
+    maintainers = with stdenv.lib.maintainers; [ marcweber andres peti ];
     inherit (ghc.meta) license platforms;
   };
 

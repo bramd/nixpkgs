@@ -7,7 +7,7 @@
 , enableRST ? true
 , enableSpelling ? true, gtkspell ? null
 , enableNotifications ? false
-, enableLaTeX ? false, texLive ? null
+, extraPythonPackages ? pkgs: []
 }:
 
 assert enableJingle -> farstream != null && gst_plugins_bad != null
@@ -16,17 +16,16 @@ assert enableE2E -> pythonPackages.pycrypto != null;
 assert enableRST -> pythonPackages.docutils != null;
 assert enableSpelling -> gtkspell != null;
 assert enableNotifications -> pythonPackages.notify != null;
-assert enableLaTeX -> texLive != null;
 
 with stdenv.lib;
 
 stdenv.mkDerivation rec {
   name = "gajim-${version}";
-  version = "0.16.3";
+  version = "0.16.5";
 
   src = fetchurl {
     url = "http://www.gajim.org/downloads/0.16/gajim-${version}.tar.bz2";
-    sha256 = "05a59hf9wna6n9fi0a4bhz1hifqj21bwb4ff9rd0my23rdwmij51";
+    sha256 = "14fhcqnkqygh91132dnf1idayj4r3iqbwb44sd3mxv20n6ribh55";
   };
 
   patches = [
@@ -51,11 +50,6 @@ stdenv.mkDerivation rec {
   '' + optionalString enableSpelling ''
     sed -i -e 's|=.*find_lib.*|= "${gtkspell}/lib/libgtkspell.so"|'   \
       src/gtkspell.py
-  '' + optionalString enableLaTeX ''
-    sed -i -e "s|try_run(.'dvipng'|try_run(['${texLive}/bin/dvipng'|" \
-           -e "s|try_run(.'latex'|try_run(['${texLive}/bin/latex'|"   \
-           -e 's/tmpfd.close()/os.close(tmpfd)/'                      \
-           src/common/latex.py
   '';
 
   buildInputs = [
@@ -69,7 +63,7 @@ stdenv.mkDerivation rec {
     ++ optional enableE2E pythonPackages.pycrypto
     ++ optional enableRST pythonPackages.docutils
     ++ optional enableNotifications pythonPackages.notify
-    ++ optional enableLaTeX texLive;
+    ++ extraPythonPackages pythonPackages;
 
   postInstall = ''
     install -m 644 -t "$out/share/gajim/icons/hicolor" \

@@ -1,18 +1,18 @@
-{ stdenv, fetchurl, python, pkgconfig, popt, atk, libX11, libICE, xlibs, libXi
+{ stdenv, fetchurl, python, pkgconfig, popt, atk, libX11, libICE, xorg, libXi
 , intltool, dbus_glib, at_spi2_core, libSM }:
 
 stdenv.mkDerivation rec {
-  versionMajor = "2.16";
-  versionMinor = "0";
+  versionMajor = "2.20";
+  versionMinor = "1";
   moduleName   = "at-spi2-atk";
   name = "${moduleName}-${versionMajor}.${versionMinor}";
 
   src = fetchurl {
     url = "mirror://gnome/sources/${moduleName}/${versionMajor}/${name}.tar.xz";
-    sha256 = "1y9gfz1iz3wpja7s000f0bmyyvc6im5fcdl6bxwbz0v3qdgc9vvq";
+    sha256 = "2358a794e918e8f47ce0c7370eee8fc8a6207ff1afe976ec9ff547a03277bf8e";
   };
 
-  buildInputs = [ python pkgconfig popt atk libX11 libICE xlibs.libXtst libXi
+  buildInputs = [ python pkgconfig popt atk libX11 libICE xorg.libXtst libXi
                   intltool dbus_glib at_spi2_core libSM ];
 
   meta = with stdenv.lib; {

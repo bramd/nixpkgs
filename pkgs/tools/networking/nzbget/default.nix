@@ -1,19 +1,18 @@
 { stdenv, fetchurl, pkgconfig, libxml2, ncurses, libsigcxx, libpar2
-, gnutls, libgcrypt, zlib }:
+, gnutls, libgcrypt, zlib, openssl }:
 
-let
-  version = "15.0";
-in
 stdenv.mkDerivation rec {
   name = "nzbget-${version}";
+  version = "17.0-r1686";
+  filename = "nzbget-17.0-testing-r1686";
 
   src = fetchurl {
-    url = "http://github.com/nzbget/nzbget/releases/download/v${version}/${name}-src.tar.gz";
-    sha256 = "02nclq97gqr4zwww4j1l9sds2rwrwwvwvh2gkjhwvr0pb4z3zw9y";
+    url = "http://github.com/nzbget/nzbget/releases/download/v${version}/${filename}-src.tar.gz";
+    sha256 = "0hk0hiccdk3bivdnc2635kqqdwgwf73wvis1wl9k0snds25dwfiw";
   };
 
   buildInputs = [ pkgconfig libxml2 ncurses libsigcxx libpar2 gnutls
-                  libgcrypt zlib ];
+                  libgcrypt zlib openssl ];
 
   enableParallelBuilding = true;
 

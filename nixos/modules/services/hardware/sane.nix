@@ -4,7 +4,9 @@ with lib;
 
 let
 
-  pkg = if config.hardware.sane.snapshot then pkgs.saneBackendsGit else pkgs.saneBackends;
+  pkg = if config.hardware.sane.snapshot
+    then pkgs.sane-backends-git
+    else pkgs.sane-backends;
   backends = [ pkg ] ++ config.hardware.sane.extraBackends;
   saneConfig = pkgs.mkSaneConfig { paths = backends; };
 
@@ -19,7 +21,13 @@ in
     hardware.sane.enable = mkOption {
       type = types.bool;
       default = false;
-      description = "Enable support for SANE scanners.";
+      description = ''
+        Enable support for SANE scanners.
+
+        <note><para>
+          Users in the "scanner" group will gain access to the scanner.
+        </para></note>
+      '';
     };
 
     hardware.sane.snapshot = mkOption {
@@ -31,12 +39,18 @@ in
     hardware.sane.extraBackends = mkOption {
       type = types.listOf types.path;
       default = [];
-      description = "Packages providing extra SANE backends to enable.";
+      description = ''
+        Packages providing extra SANE backends to enable.
+
+        <note><para>
+          The example contains the package for HP scanners.
+        </para></note>
+      '';
+      example = literalExample "[ pkgs.hplipWithPlugin ]";
     };
 
     hardware.sane.configDir = mkOption {
       type = types.string;
-      default = "${saneConfig}/etc/sane.d";
       description = "The value of SANE_CONFIG_DIR.";
     };
 
@@ -46,6 +60,8 @@ in
   ###### implementation
 
   config = mkIf config.hardware.sane.enable {
+
+    hardware.sane.configDir = mkDefault "${saneConfig}/etc/sane.d";
 
     environment.systemPackages = backends;
     environment.sessionVariables = {

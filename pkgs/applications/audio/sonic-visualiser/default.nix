@@ -2,8 +2,8 @@
 
 { stdenv, fetchurl, alsaLib, bzip2, fftw, libjack2, libX11, liblo
 , libmad, libogg, librdf, librdf_raptor, librdf_rasqal, libsamplerate
-, libsndfile, pkgconfig, libpulseaudio, qt5, redland
-, rubberband, serd, sord, vampSDK, fftwFloat
+, libsndfile, pkgconfig, libpulseaudio, makeQtWrapper, qtbase, redland
+, qmakeHook, rubberband, serd, sord, vampSDK, fftwFloat
 }:
 
 stdenv.mkDerivation rec {
@@ -16,7 +16,7 @@ stdenv.mkDerivation rec {
   };
 
   buildInputs =
-    [ libsndfile qt5.base fftw fftwFloat bzip2 librdf rubberband
+    [ libsndfile qtbase qmakeHook fftw fftwFloat bzip2 librdf rubberband
       libsamplerate vampSDK alsaLib librdf_raptor librdf_rasqal redland
       serd
       sord
@@ -32,17 +32,19 @@ stdenv.mkDerivation rec {
       libX11
     ];
 
-  buildPhase = ''
+  nativeBuildInputs = [ makeQtWrapper qmakeHook ];
+
+  configurePhase = ''
     for i in sonic-visualiser svapp svcore svgui;
-      do cd $i && qmake -makefile PREFIX=$out && cd ..;
+      do cd $i && qmake PREFIX=$out && cd ..;
     done
-    make
   '';
 
   installPhase = ''
     mkdir -p $out/{bin,share/sonic-visualiser}
     cp sonic-visualiser $out/bin/
     cp -r samples $out/share/sonic-visualiser/
+    wrapQtProgram "$out/bin/sonic-visualiser"
   '';
 
   meta = with stdenv.lib; {
@@ -51,5 +53,6 @@ stdenv.mkDerivation rec {
     license = licenses.gpl2Plus;
     maintainers = [ maintainers.goibhniu maintainers.marcweber ];
     platforms = platforms.linux;
+    broken = true;
   };
 }

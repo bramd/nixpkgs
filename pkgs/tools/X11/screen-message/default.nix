@@ -1,14 +1,16 @@
-{ stdenv, fetchdarcs, autoreconfHook, pkgconfig, gtk3 }:
+{ stdenv, fetchurl, autoreconfHook, pkgconfig, gtk3 }:
 
-stdenv.mkDerivation {
-  name = "screen-message-0.23";
+stdenv.mkDerivation rec {
+  name = "screen-message-${version}";
+  version = "0.24";
 
-  src = fetchdarcs {
-    url = "http://darcs.nomeata.de/screen-message.debian";
-    rev = "0.23-1";
+  src = fetchurl {
+    url = "mirror://debian/pool/main/s/screen-message/screen-message_${version}.orig.tar.gz";
+    sha256 = "1v03axr7471fmzxccl3ckv73j8gfcj615y5maxvm5phy0sd6rl49";
   };
 
-  buildInputs = [ autoreconfHook pkgconfig gtk3 ];
+  nativeBuildInputs = [ autoreconfHook pkgconfig ];
+  buildInputs = [ gtk3 ];
 
   # screen-message installs its binary in $(prefix)/games per default
   makeFlags = [ "execgamesdir=$(out)/bin" ];

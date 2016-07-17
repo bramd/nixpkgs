@@ -1,20 +1,28 @@
-{ stdenv, lib, fetchurl, zlib }:
+{ stdenv, lib, fetchurl, zlib, unzip }:
 
 with lib;
 
 stdenv.mkDerivation rec {
   name = "sauce-connect-${version}";
-  version = "4.3.6";
+  version = "4.3.16";
 
   src = fetchurl (
     if stdenv.system == "x86_64-linux" then {
       url = "https://saucelabs.com/downloads/sc-${version}-linux.tar.gz";
-      sha1 = "0d7d2dc12766ac137e62a3e4dad3025b590f9782";
-    } else {
+      sha256 = "0i4nvb1yd9qnbgbfc8wbl7ghpmba2jr98hj4y4j4sbjfk65by3xw";
+    } else if stdenv.system == "i686-linux" then {
       url = "https://saucelabs.com/downloads/sc-${version}-linux32.tar.gz";
-      sha1 = "ee2c3002eae3b29df801a2ac1db77bb5f1c97bcc";
+      sha256 = "1w9b1584kh1n4fw0wxbyslxp6w09if53fv4p9zz7vn4smm79ndfz";
+    } else {
+      url = "https://saucelabs.com/downloads/sc-${version}-osx.zip";
+      sha256 = "1vhz2j30p285blspg7prr9bsah6f922p0mv7mhmk6xzgf6fgn764";
     }
   );
+
+  buildInputs = [ unzip ];
+  phases = [ "unpackPhase" ]
+   ++ (lib.optionals (stdenv.system != "x86_64-darwin") [ "patchPhase" ])
+   ++ [ "installPhase " ];
 
   patchPhase = ''
     patchelf \
@@ -35,6 +43,6 @@ stdenv.mkDerivation rec {
     license = licenses.unfree;
     homepage = https://docs.saucelabs.com/reference/sauce-connect/;
     maintainers = with maintainers; [offline];
-    platforms = with platforms; platforms.linux;
+    platforms = platforms.linux ++ platforms.darwin;
   };
 }

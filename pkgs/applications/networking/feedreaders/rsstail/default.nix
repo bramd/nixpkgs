@@ -1,18 +1,29 @@
 { stdenv, fetchFromGitHub, cppcheck, libmrss }:
 
-let version = "2.0"; in
 stdenv.mkDerivation rec {
   name = "rsstail-${version}";
+  version = "2.1";
 
   src = fetchFromGitHub {
-    sha256 = "0fbsyl5bdxr2g25ps7kd34sa0mzggklbg4v7qss68gh82zdp16ch";
-    rev = "69dc5e30439b89c037aa49c5af861f28df607c72";
+    sha256 = "12p69i3g1fwlw0bds9jqsdmzkid3k5a41w31d227i7vm12wcvjf6";
+    rev = "6f2436185372b3f945a4989406c4b6a934fe8a95";
     repo = "rsstail";
     owner = "flok99";
   };
 
+  buildInputs = [ libmrss ]
+    ++ stdenv.lib.optional doCheck cppcheck;
+
+  postPatch = ''
+    substituteInPlace Makefile --replace -liconv_hook ""
+  '';
+
+  makeFlags = [ "prefix=$(out)" ];
+  enableParallelBuilding = true;
+
+  doCheck = true;
+
   meta = with stdenv.lib; {
-    inherit version;
     description = "Monitor RSS feeds for new entries";
     longDescription = ''
       RSSTail is more or less an RSS reader: it monitors an RSS feed and if it
@@ -20,19 +31,7 @@ stdenv.mkDerivation rec {
     '';
     homepage = http://www.vanheusden.com/rsstail/;
     license = licenses.gpl2Plus;
-    platforms = with platforms; linux;
+    platforms = platforms.linux;
     maintainers = with maintainers; [ nckx ];
   };
-
-  buildInputs = [ libmrss ]
-    ++ stdenv.lib.optional doCheck cppcheck;
-
-  postPatch = ''
-    substituteInPlace Makefile --replace -liconv ""
-  '';
-
-  makeFlags = "prefix=$(out)";
-  enableParallelBuilding = true;
-
-  doCheck = true;
 }

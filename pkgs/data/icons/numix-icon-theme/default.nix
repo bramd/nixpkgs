@@ -1,17 +1,17 @@
 { stdenv, fetchFromGitHub }:
 
 stdenv.mkDerivation rec {
-  version = "2c11fbfcee";
+  version = "2016-06-10";
 
   package-name = "numix-icon-theme";
 
-  name = "${package-name}-20150302";
+  name = "${package-name}-${version}";
 
   src = fetchFromGitHub {
     owner = "numixproject";
     repo = package-name;
-    rev = version;
-    sha256 = "1bjh2j4vqk9s31syv7ig3hwpp5z0n6sx74iz332y0wdz6ngj5x08";
+    rev = "8196e9eaa5a60b5c02a9e37a4ca768b07966b41f";
+    sha256 = "0cyv0r66vil54y6w317msddq2fjs9zhrdx17m3bx85xpqz67zq5i";
   };
 
   dontBuild = true;
@@ -21,10 +21,11 @@ stdenv.mkDerivation rec {
     cp -dr --no-preserve='ownership' Numix{,-Light} $out/share/icons/
   '';
 
-  meta = {
+  meta = with stdenv.lib; {
     description = "Numix icon theme";
     homepage = https://numixproject.org;
-    license = stdenv.lib.licenses.gpl3;
-    platforms = stdenv.lib.platforms.all;
+    license = licenses.gpl3;
+    platforms = platforms.all;
+    maintainers = with maintainers; [ romildo jgeerds ];
   };
 }

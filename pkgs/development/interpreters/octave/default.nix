@@ -1,6 +1,6 @@
 { stdenv, fetchurl, gfortran, readline, ncurses, perl, flex, texinfo, qhull
-, libX11, graphicsmagick, pcre, pkgconfig, mesa, fltk
-, fftw, fftwSinglePrec, zlib, curl, qrupdate, openblas
+, libsndfile, libX11, graphicsmagick, pcre, pkgconfig, mesa, fltk
+, fftw, fftwSinglePrec, zlib, curl, qrupdate, openblas, arpack, libwebp
 , qt ? null, qscintilla ? null, ghostscript ? null, llvm ? null, hdf5 ? null,glpk ? null
 , suitesparse ? null, gnuplot ? null, jdk ? null, python ? null
 }:
@@ -18,16 +18,16 @@ let
 in
 
 stdenv.mkDerivation rec {
-  version = "4.0.0";
+  version = "4.0.1";
   name = "octave-${version}";
   src = fetchurl {
     url = "mirror://gnu/octave/${name}.tar.xz";
-    sha256 = "0x64b2lna4vrlm4wwx6h1qdlmki6s2b9q90yjxldlvvrqvxf4syg";
+    sha256 = "11y2w6jgngj4rxiy136mkcs02l52rxk60kapyfc4rgrxz5hli3ym";
   };
 
   buildInputs = [ gfortran readline ncurses perl flex texinfo qhull libX11
-    graphicsmagick pcre pkgconfig mesa fltk zlib curl openblas
-    fftw fftwSinglePrec qrupdate ]
+    graphicsmagick pcre pkgconfig mesa fltk zlib curl openblas libsndfile
+    fftw fftwSinglePrec qrupdate arpack libwebp ]
     ++ (stdenv.lib.optional (qt != null) qt)
     ++ (stdenv.lib.optional (qscintilla != null) qscintilla)
     ++ (stdenv.lib.optional (ghostscript != null) ghostscript)
@@ -38,13 +38,12 @@ stdenv.mkDerivation rec {
     ++ (stdenv.lib.optional (jdk != null) jdk)
     ++ (stdenv.lib.optional (gnuplot != null) gnuplot)
     ++ (stdenv.lib.optional (python != null) python)
+    ++ (stdenv.lib.optionals (!stdenv.isDarwin) [mesa libX11])
     ;
 
-  # there is a mysterious sh: command not found
-  doCheck = false;
+  doCheck = !stdenv.isDarwin;
 
-  # problems on Hydra
-  enableParallelBuilding = false;
+  enableParallelBuilding = true;
 
   configureFlags =
     [ "--enable-readline"
@@ -52,7 +51,9 @@ stdenv.mkDerivation rec {
       "--with-blas=openblas"
       "--with-lapack=openblas"
     ]
-    ++ stdenv.lib.optional openblas.blas64 "--enable-64";
+    ++ stdenv.lib.optional openblas.blas64 "--enable-64"
+    ++ stdenv.lib.optionals stdenv.isDarwin ["--with-x=no"]
+    ;
 
   # Keep a copy of the octave tests detailed results in the output
   # derivation, because someone may care
@@ -69,6 +70,6 @@ stdenv.mkDerivation rec {
     homepage = http://octave.org/;
     license = stdenv.lib.licenses.gpl3Plus;
     maintainers = with stdenv.lib.maintainers; [viric raskin];
-    platforms = with stdenv.lib.platforms; linux;
+    platforms = with stdenv.lib.platforms; linux ++ darwin;
   };
 }

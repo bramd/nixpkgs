@@ -1,16 +1,22 @@
-{ stdenv, fetchurl, zlib, ncurses ? null, perl ? null, pam }:
+{ stdenv, fetchurl, pkgconfig, zlib, ncurses ? null, perl ? null, pam, systemd }:
 
 stdenv.mkDerivation rec {
-  name = "util-linux-2.26.2";
+  name = "util-linux-${version}";
+  version = "2.28";
 
   src = fetchurl {
-    url = "mirror://kernel/linux/utils/util-linux/v2.26/${name}.tar.xz";
-    sha256 = "0rlnzmiqdannzf81fbh41541lrck63v9zhskm6h4i2jj8ahvsa8f";
+    url = "mirror://kernel/linux/utils/util-linux/v${version}/${name}.tar.xz";
+    sha256 = "1fql204qn3098j34yd358l85ffp7a4kqjf7jf1qk2b4al7i4fn1r";
   };
 
   patches = [
     ./rtcwake-search-PATH-for-shutdown.patch
   ];
+
+  outputs = [ "bin" "out" "man" ]; # TODO: $bin is kept the first for now
+  # due to lots of ${utillinux}/bin occurences and headers being rather small
+  outputDev = "bin";
+
 
   #FIXME: make it also work on non-nixos?
   postPatch = ''
@@ -36,23 +42,32 @@ stdenv.mkDerivation rec {
     --disable-use-tty-group
     --enable-fs-paths-default=/var/setuid-wrappers:/var/run/current-system/sw/bin:/sbin
     ${if ncurses == null then "--without-ncurses" else ""}
+    ${if systemd == null then "" else ''
+      --with-systemd
+      --with-systemdsystemunitdir=$out/lib/systemd/system/
+    ''}
   '';
 
+  makeFlags = "usrbin_execdir=$(bin)/bin usrsbin_execdir=$(bin)/sbin";
+
+  nativeBuildInputs = [ pkgconfig ];
   buildInputs =
     [ zlib pam ]
     ++ stdenv.lib.optional (ncurses != null) ncurses
+    ++ stdenv.lib.optional (systemd != null) [ systemd pkgconfig ]
     ++ stdenv.lib.optional (perl != null) perl;
 
   postInstall = ''
-    rm $out/bin/su # su should be supplied by the su package (shadow)
+    rm "$bin/bin/su" # su should be supplied by the su package (shadow)
   '';
 
   enableParallelBuilding = true;
 
-  meta = {
-    homepage = http://www.kernel.org/pub/linux/utils/util-linux/;
+  meta = with stdenv.lib; {
+    homepage = https://www.kernel.org/pub/linux/utils/util-linux/;
     description = "A set of system utilities for Linux";
-    platforms = stdenv.lib.platforms.linux;
+    license = licenses.gpl2; # also contains parts under more permissive licenses
+    platforms = platforms.linux;
     priority = 6; # lower priority than coreutils ("kill") and shadow ("login" etc.) packages
   };
 }

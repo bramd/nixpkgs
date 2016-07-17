@@ -13,11 +13,11 @@
 }:
 
 stdenv.mkDerivation rec {
-  name = "nsd-4.1.3";
+  name = "nsd-4.1.9";
 
   src = fetchurl {
     url = "http://www.nlnetlabs.nl/downloads/nsd/${name}.tar.gz";
-    sha256 = "1r8p5lqj7i6xi4k04jr1n9r1p8gwy3547hzsi8xags6krnav4z09";
+    sha256 = "1wn8jm5kpp81m88c77j97850mnmd87yaw8qp3xsdwcakcd6j44dq";
   };
 
   buildInputs = [ libevent openssl ];
@@ -35,13 +35,12 @@ stdenv.mkDerivation rec {
      ++ edf rootServer       "root-server"
      ++ edf rrtypes          "draft-rrtypes"
      ++ edf zoneStats        "zone-stats"
-     ++ [ "--with-ssl=${openssl}" "--with-libevent=${libevent}" ];
+     ++ [ "--with-ssl=${openssl.dev}" "--with-libevent=${libevent.dev}" ];
 
   meta = with stdenv.lib; {
     homepage = http://www.nlnetlabs.nl;
     description = "Authoritative only, high performance, simple and open source name server";
     license = licenses.bsd3;
-
     platforms = platforms.unix;
     maintainers = [ maintainers.hrdinka ];
   };

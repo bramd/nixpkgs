@@ -37,7 +37,7 @@ stdenv.mkDerivation rec {
 
   preBuild = assert glibc != null;
     ''
-      substituteInPlace lib/nscd.c --replace /usr/sbin/nscd ${glibc}/sbin/nscd
+      substituteInPlace lib/nscd.c --replace /usr/sbin/nscd ${glibc.bin}/bin/nscd
     '';
 
   postInstall =
@@ -53,5 +53,9 @@ stdenv.mkDerivation rec {
   meta = {
     homepage = http://pkg-shadow.alioth.debian.org/;
     description = "Suite containing authentication-related tools such as passwd and su";
+  };
+
+  passthru = {
+    shellPath = "/bin/nologin";
   };
 }

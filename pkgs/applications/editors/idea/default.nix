@@ -1,82 +1,18 @@
-{ stdenv, fetchurl, makeDesktopItem, makeWrapper, patchelf, p7zip, jdk
-, coreutils, gnugrep, which, git, python, unzip, androidsdk
+{ stdenv, callPackage, fetchurl, makeDesktopItem, makeWrapper, patchelf
+, coreutils, gnugrep, which, git, python, unzip, p7zip
+, androidsdk, jdk
 }:
 
 assert stdenv.isLinux;
 
 let
 
-  mkIdeaProduct = with stdenv.lib;
-  { name, product, version, build, src, meta }:
+  bnumber = with stdenv.lib; build: last (splitString "-" build);
+  mkIdeaProduct = callPackage ./common.nix { };
 
-  let loName = toLower product;
-      hiName = toUpper product;
-      execName = concatStringsSep "-" (init (splitString "-" name));
-  in
-
-  with stdenv; lib.makeOverridable mkDerivation rec {
-    inherit name build src meta;
-    desktopItem = makeDesktopItem {
-      name = execName;
-      exec = execName;
-      comment = lib.replaceChars ["\n"] [" "] meta.longDescription;
-      desktopName = product;
-      genericName = meta.description;
-      categories = "Application;Development;";
-      icon = execName;
-    };
-
-    buildInputs = [ makeWrapper patchelf p7zip unzip ];
-
-    patchPhase = ''
-        get_file_size() {
-          local fname="$1"
-          echo $(ls -l $fname | cut -d ' ' -f5)
-        }
-
-        munge_size_hack() {
-          local fname="$1"
-          local size="$2"
-          strip $fname
-          truncate --size=$size $fname
-        }
-
-        interpreter=$(echo ${stdenv.glibc}/lib/ld-linux*.so.2)
-        if [ "${stdenv.system}" == "x86_64-linux" ]; then
-          target_size=$(get_file_size bin/fsnotifier64)
-          patchelf --set-interpreter "$interpreter" bin/fsnotifier64
-          munge_size_hack bin/fsnotifier64 $target_size
-        else
-          target_size=$(get_file_size bin/fsnotifier)
-          patchelf --set-interpreter "$interpreter" bin/fsnotifier
-          munge_size_hack bin/fsnotifier $target_size
-        fi
-    '';
-
-    installPhase = ''
-      mkdir -p $out/{bin,$name,share/pixmaps,libexec/${name}}
-      cp -a . $out/$name
-      ln -s $out/$name/bin/${loName}.png $out/share/pixmaps/${execName}.png
-      mv bin/fsnotifier* $out/libexec/${name}/.
-
-      jdk=${jdk.home}
-      item=${desktopItem}
-
-      makeWrapper "$out/$name/bin/${loName}.sh" "$out/bin/${execName}" \
-        --prefix PATH : "$out/libexec/${name}:${jdk}/bin:${coreutils}/bin:${gnugrep}/bin:${which}/bin:${git}/bin" \
-        --set JDK_HOME "$jdk" \
-        --set ${hiName}_JDK "$jdk" \
-        --set ANDROID_JAVA_HOME "$jdk" \
-        --set JAVA_HOME "$jdk"
-
-      ln -s "$item/share/applications" $out/share
-    '';
-
-  };
-
-  buildAndroidStudio = { name, version, build, src, license, description }:
+  buildAndroidStudio = { name, version, build, src, license, description, wmClass }:
     let drv = (mkIdeaProduct rec {
-      inherit name version build src;
+      inherit name version build src wmClass jdk;
       product = "Studio";
       meta = with stdenv.lib; {
         homepage = https://developer.android.com/sdk/installing/studio.html;
@@ -95,13 +31,14 @@ let
       buildInputs = x.buildInputs ++ [ makeWrapper ];
       installPhase = x.installPhase +  ''
         wrapProgram "$out/bin/android-studio" \
-          --set ANDROID_HOME "${androidsdk}/libexec/android-sdk-linux/"
+          --set ANDROID_HOME "${androidsdk}/libexec/android-sdk-linux/" \
+          --set LD_LIBRARY_PATH "${stdenv.cc.cc.lib}/lib" # Gradle installs libnative-platform.so in ~/.gradle, that requires libstdc++.so.6
       '';
     });
 
-  buildClion = { name, version, build, src, license, description }:
+  buildClion = { name, version, build, src, license, description, wmClass }:
     (mkIdeaProduct rec {
-      inherit name version build src;
+      inherit name version build src wmClass jdk;
       product = "CLion";
       meta = with stdenv.lib; {
         homepage = "https://www.jetbrains.com/clion/";
@@ -115,9 +52,9 @@ let
       };
     });
 
-  buildIdea = { name, version, build, src, license, description }:
+  buildIdea = { name, version, build, src, license, description, wmClass }:
     (mkIdeaProduct rec {
-      inherit name version build src;
+      inherit name version build src wmClass jdk;
       product = "IDEA";
       meta = with stdenv.lib; {
         homepage = "https://www.jetbrains.com/idea/";
@@ -132,9 +69,9 @@ let
       };
     });
 
-  buildRubyMine = { name, version, build, src, license, description }:
+  buildRubyMine = { name, version, build, src, license, description, wmClass }:
     (mkIdeaProduct rec {
-      inherit name version build src;
+      inherit name version build src wmClass jdk;
       product = "RubyMine";
       meta = with stdenv.lib; {
         homepage = "https://www.jetbrains.com/ruby/";
@@ -145,9 +82,9 @@ let
       };
     });
 
-  buildPhpStorm = { name, version, build, src, license, description }:
+  buildPhpStorm = { name, version, build, src, license, description, wmClass }:
     (mkIdeaProduct {
-      inherit name version build src;
+      inherit name version build src wmClass jdk;
       product = "PhpStorm";
       meta = with stdenv.lib; {
         homepage = "https://www.jetbrains.com/phpstorm/";
@@ -162,9 +99,9 @@ let
       };
     });
 
-  buildWebStorm = { name, version, build, src, license, description }:
+  buildWebStorm = { name, version, build, src, license, description, wmClass }:
     (mkIdeaProduct {
-      inherit name version build src;
+      inherit name version build src wmClass jdk;
       product = "WebStorm";
       meta = with stdenv.lib; {
         homepage = "https://www.jetbrains.com/webstorm/";
@@ -179,9 +116,9 @@ let
       };
     });
 
-  buildPycharm = { name, version, build, src, license, description }:
+  buildPycharm = { name, version, build, src, license, description, wmClass }:
     (mkIdeaProduct rec {
-      inherit name version build src;
+      inherit name version build src wmClass jdk;
       product = "PyCharm";
       meta = with stdenv.lib; {
         homepage = "https://www.jetbrains.com/pycharm/";
@@ -210,113 +147,161 @@ in
 
 {
 
-  android-studio = buildAndroidStudio rec {
+  android-studio = let buildNumber = "143.2915827"; in buildAndroidStudio rec {
     name = "android-studio-${version}";
-    version = "1.2.2.0";
-    build = "141.1980579";
+    version = "2.1.2.0";
+    build = "AI-${buildNumber}";
     description = "Android development environment based on IntelliJ IDEA";
     license = stdenv.lib.licenses.asl20;
     src = fetchurl {
       url = "https://dl.google.com/dl/android/studio/ide-zips/${version}" +
-            "/android-studio-ide-${build}-linux.zip";
-      sha256 = "08bayp2kxxg0zdmd1rcfg89g80wmwxf56fzmk5xkz1qg6s9b98a6";
+            "/android-studio-ide-${buildNumber}-linux.zip";
+      sha256 = "0q61m8yln77valg7y6lyxlml53z387zh6fyfgc22sm3br5ahbams";
     };
+    wmClass = "jetbrains-studio";
   };
 
   clion = buildClion rec {
     name = "clion-${version}";
-    version = "1.0.4";
-    build = "141.874";
+    version = "1.2.5";
+    build = "CL-143.2370.46";
     description  = "C/C++ IDE. New. Intelligent. Cross-platform";
     license = stdenv.lib.licenses.unfree;
     src = fetchurl {
       url = "https://download.jetbrains.com/cpp/${name}.tar.gz";
-      sha256 = "1cz59h2znzjy7zncc049f2w30kc89rvmk7l51a1y6ymf9s7cj4cm";
+      sha256 = "0ll1rcnnbd1if6x5rp3qw35lvp5zdzmvyg9n1lha89i34xiw36jp";
     };
+    wmClass = "jetbrains-clion";
   };
 
-  idea-community = buildIdea rec {
+  idea14-community = buildIdea rec {
     name = "idea-community-${version}";
-    version = "14.1.4";
-    build = "IC-141.1532.4";
+    version = "14.1.7";
+    build = "IC-141.3058.30";
     description = "Integrated Development Environment (IDE) by Jetbrains, community edition";
     license = stdenv.lib.licenses.asl20;
     src = fetchurl {
       url = "https://download.jetbrains.com/idea/ideaIC-${version}.tar.gz";
-      sha256 = "1yx93dfbajk2icm2jkfp5s5jnr1czyk179va3n5zndzzhzags4xx";
+      sha256 = "1i4mdjm9dd6zvxlpdgd3bqg45ir0cfc9hl55cdc0hg5qwbz683fz";
     };
+    wmClass = "jetbrains-idea-ce";
   };
 
-  idea-ultimate = buildIdea rec {
+  idea-community = buildIdea rec {
+    name = "idea-community-${version}";
+    version = "2016.2";
+    build = "IC-162.1121";
+    description = "Integrated Development Environment (IDE) by Jetbrains, community edition";
+    license = stdenv.lib.licenses.asl20;
+    src = fetchurl {
+      url = "https://download.jetbrains.com/idea/ideaIC-${version}.tar.gz";
+      sha256 = "164x4l0q31zpc1jh3js1xx9y6afrzsshmnkx1mwhmq8qmvzc4w32";
+    };
+    wmClass = "jetbrains-idea-ce";
+  };
+
+  idea14-ultimate = buildIdea rec {
     name = "idea-ultimate-${version}";
-    version = "14.1.4";
-    build = "IU-141.1532.4";
+    version = "14.1.7";
+    build = "IU-141.3058.30";
     description = "Integrated Development Environment (IDE) by Jetbrains, requires paid license";
     license = stdenv.lib.licenses.unfree;
     src = fetchurl {
       url = "https://download.jetbrains.com/idea/ideaIU-${version}.tar.gz";
-      sha256 = "1hxs0mh35r43iqd1i1s2g1ha91q2wnb6xs95w572khzjm5dznvaw";
+      sha256 = "a2259249f6e7bf14ba17b0af90a18d24d9b4670af60d24f0bb51af2f62500fc2";
     };
+    wmClass = "jetbrains-idea";
+  };
+
+  idea15-ultimate = buildIdea rec {
+    name = "idea-ultimate-${version}";
+    version = "15.0.6";
+    build = "IU-143.2370.31";
+    description = "Integrated Development Environment (IDE) by Jetbrains, requires paid license";
+    license = stdenv.lib.licenses.unfree;
+    src = fetchurl {
+      url = "https://download.jetbrains.com/idea/ideaIU-${version}.tar.gz";
+      sha256 = "012aap2qn0jx4x34bdv9ivrsr86vvf683srb5vpj27hc4l6rw6ll";
+    };
+    wmClass = "jetbrains-idea";
+  };
+
+  idea-ultimate = buildIdea rec {
+    name = "idea-ultimate-${version}";
+    version = "2016.2";
+    build = "IU-162.1121";
+    description = "Integrated Development Environment (IDE) by Jetbrains, requires paid license";
+    license = stdenv.lib.licenses.unfree;
+    src = fetchurl {
+      url = "https://download.jetbrains.com/idea/ideaIU-${version}.tar.gz";
+      sha256 = "10hiqh6ccmai2cnc5p72vqjcz9kzmmcpn0hy5v514h4mq6vs4zk4";
+    };
+    wmClass = "jetbrains-idea";
   };
 
   ruby-mine = buildRubyMine rec {
     name = "ruby-mine-${version}";
-    version = "7.1.2";
-    build = "141.1119";
+    version = "7.1.5";
+    build = "RM-141.3058.29";
     description = "The Most Intelligent Ruby and Rails IDE";
     license = stdenv.lib.licenses.unfree;
     src = fetchurl {
       url = "https://download.jetbrains.com/ruby/RubyMine-${version}.tar.gz";
-      sha256 = "1gz14lv5jhnrnshp7lkx3wgrdf0y60abs4q78yhv2x9dc6ld1gmj";
+      sha256 = "04fcxj1xlap9mxmwf051s926p2darlj5kwl4lms2gy5d8b2lhd5l";
     };
+    wmClass = "jetbrains-rubymine";
   };
 
   pycharm-community = buildPycharm rec {
     name = "pycharm-community-${version}";
-    version = "4.5.4";
-    build = "141.2569";
+    version = "2016.1.3";
+    build = "PC-145.971.25";
     description = "PyCharm Community Edition";
     license = stdenv.lib.licenses.asl20;
     src = fetchurl {
-      url = "https://download-cf.jetbrains.com/python/${name}.tar.gz";
-      sha256 = "0a2208rjcvcm9dww317clwiil3ddza3qq9wqkvr0rrcfp1739pbb";
+      url = "https://download.jetbrains.com/python/${name}.tar.gz";
+      sha256 = "1ks7crrfnhzkdxban2hh2pnr986vqwmac5zybmb1ighcyamhdi4q";
     };
+    wmClass = "jetbrains-pycharm-ce";
   };
 
   pycharm-professional = buildPycharm rec {
     name = "pycharm-professional-${version}";
-    version = "4.5.4";
-    build = "141.2569";
+    version = "2016.1.3";
+    build = "PY-145.971.25";
     description = "PyCharm Professional Edition";
     license = stdenv.lib.licenses.unfree;
     src = fetchurl {
-      url = "https://download-cf.jetbrains.com/python/${name}.tar.gz";
-      sha256 = "1dy64myih92kxmi6h9y142dbmmwwphs2n3vswyg53881g5i0lfhd";
+      url = "https://download.jetbrains.com/python/${name}.tar.gz";
+      sha256 = "1rn0i5qbvfjbl4v571ngmyslispibcq5ab0fb7xjl38vr1y417f2";
     };
+    wmClass = "jetbrains-pycharm";
   };
 
   phpstorm = buildPhpStorm rec {
     name = "phpstorm-${version}";
-    version = "9.0";
-    build = "PS-141.1912";
+    version = "10.0.4";
+    build = "PS-143.2370.33";
     description = "Professional IDE for Web and PHP developers";
     license = stdenv.lib.licenses.unfree;
     src = fetchurl {
       url = "https://download.jetbrains.com/webide/PhpStorm-${version}.tar.gz";
-      sha256 = "1n6p8xiv0nrs6yf0250mpga291msnrfamv573dva9f17cc3df2pp";
+      sha256 = "0fi042zvjpg5pn2mnhj3bbrdkl1b9vmhpf2l6ca4nr0rhjjv7dsm";
     };
+    wmClass = "jetbrains-phpstorm";
   };
 
   webstorm = buildWebStorm rec {
     name = "webstorm-${version}";
-    version = "10.0.4";
-    build = "141.1550";
-    description = "Professional IDE for Web and JavaScript devlopment";
+    version = "10.0.5";
+    build = "WS-141.3058.35";
+    description = "Professional IDE for Web and JavaScript development";
     license = stdenv.lib.licenses.unfree;
     src = fetchurl {
       url = "https://download.jetbrains.com/webstorm/WebStorm-${version}.tar.gz";
-      sha256 = "171i544ssvjnbr1vq6ncxlj38swsygacavsa427qa4s5wzyvdipj";
+      sha256 = "0a5s6f99wyql5pgjl94pf4ljdbviik3b8dbr1s6b7c6jn1gk62ic";
     };
+    wmClass = "jetbrains-webstorm";
   };
 
 }

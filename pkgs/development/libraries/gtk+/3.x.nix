@@ -1,15 +1,18 @@
 { stdenv, fetchurl, pkgconfig, gettext, perl
 , expat, glib, cairo, pango, gdk_pixbuf, atk, at_spi2_atk, gobjectIntrospection
-, xlibs, x11, wayland, libxkbcommon, epoxy
+, xorg, epoxy, json_glib, libxkbcommon, gmp
+, waylandSupport ? stdenv.isLinux, wayland, wayland-protocols
 , xineramaSupport ? stdenv.isLinux
 , cupsSupport ? stdenv.isLinux, cups ? null
+, darwin
 }:
 
-assert xineramaSupport -> xlibs.libXinerama != null;
 assert cupsSupport -> cups != null;
 
+with stdenv.lib;
+
 let
-  ver_maj = "3.16";
+  ver_maj = "3.20";
   ver_min = "6";
   version = "${ver_maj}.${ver_min}";
 in
@@ -18,35 +21,51 @@ stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "mirror://gnome/sources/gtk+/${ver_maj}/gtk+-${version}.tar.xz";
-    sha256 = "1gpzlnfrifc17yfk0zki6b2vmsfpf5cmrbh232s6iaan11np44jd";
+    sha256 = "3f8016563a96b1cfef4ac9e795647f6316deb2978ff939b19e4e4f8f936fa4b2";
   };
+
+  outputs = [ "dev" "out" ];
+  outputBin = "dev";
 
   nativeBuildInputs = [ pkgconfig gettext gobjectIntrospection perl ];
 
-  buildInputs = [ libxkbcommon epoxy ];
-  propagatedBuildInputs = with xlibs; with stdenv.lib;
-    [ expat glib cairo pango gdk_pixbuf atk at_spi2_atk libXrandr libXrender libXcomposite libXi libXcursor ]
-    ++ optionals stdenv.isLinux [ wayland ]
+  patches = [ ./3.0-immodules.cache.patch ];
+
+  buildInputs = [ libxkbcommon epoxy json_glib ];
+  propagatedBuildInputs = with xorg; with stdenv.lib;
+    [ expat glib cairo pango gdk_pixbuf atk at_spi2_atk
+      libXrandr libXrender libXcomposite libXi libXcursor libSM libICE ]
+    ++ optionals waylandSupport [ wayland wayland-protocols ]
+    ++ optional stdenv.isDarwin (with darwin.apple_sdk.frameworks; [ AppKit Cocoa ])
     ++ optional xineramaSupport libXinerama
     ++ optional cupsSupport cups;
+  #TODO: colord?
 
-  NIX_LDFLAGS = if stdenv.isDarwin then "-lintl" else null;
+  NIX_LDFLAGS = stdenv.lib.optionalString stdenv.isDarwin "-lintl";
 
   # demos fail to install, no idea where's the problem
   preConfigure = "sed '/^SRC_SUBDIRS /s/demos//' -i Makefile.in";
 
   enableParallelBuilding = true;
 
-  postInstall = "rm -rf $out/share/gtk-doc";
+  configureFlags = optional stdenv.isDarwin [
+    "--disable-debug"
+    "--disable-dependency-tracking"
+    "--disable-glibtest"
+    "--with-gdktarget=quartz"
+    "--enable-quartz-backend"
+  ] ++ optional stdenv.isLinux [
+    "--enable-x11-backend"
+  ] ++ optional waylandSupport [
+    "--enable-wayland-backend"
+  ];
 
-  passthru = {
-    gtkExeEnvPostBuild = ''
-      rm $out/lib/gtk-3.0/3.0.0/immodules.cache
-      $out/bin/gtk-query-immodules-3.0 $out/lib/gtk-3.0/3.0.0/immodules/*.so > $out/lib/gtk-3.0/3.0.0/immodules.cache
-    ''; # workaround for bug of nix-mode for Emacs */ '';
-  };
+  postInstall = ''
+    substituteInPlace "$out/lib/gtk-3.0/3.0.0/printbackends/libprintbackend-cups.la" \
+      --replace '-L${gmp.dev}/lib' '-L${gmp.out}/lib'
+  '';
 
-  meta = {
+  meta = with stdenv.lib; {
     description = "A multi-platform toolkit for creating graphical user interfaces";
 
     longDescription = ''
@@ -62,9 +81,9 @@ stdenv.mkDerivation rec {
 
     homepage = http://www.gtk.org/;
 
-    license = stdenv.lib.licenses.lgpl2Plus;
+    license = licenses.lgpl2Plus;
 
-    maintainers = with stdenv.lib.maintainers; [ urkud raskin vcunat lethalman ];
-    platforms = stdenv.lib.platforms.all;
+    maintainers = with maintainers; [ urkud raskin vcunat lethalman ];
+    platforms = platforms.all;
   };
 }

@@ -1,38 +1,36 @@
 { stdenv, fetchurl, pkgconfig, which, m4, gtk, pango, perl, python, zip, libIDL
-, libjpeg, libpng, zlib, dbus, dbus_glib, bzip2, xlibs
+, libjpeg, libpng, zlib, dbus, dbus_glib, bzip2, xorg
 , freetype, fontconfig, file, alsaLib, nspr, nss, libnotify
 , yasm, mesa, sqlite, unzip, makeWrapper, pysqlite
 , hunspell, libevent, libstartup_notification, libvpx
 , cairo, gstreamer, gst_plugins_base, icu
 , debugBuild ? false
 , # If you want the resulting program to call itself "Thunderbird"
-  # instead of "Shredder", enable this option.  However, those
+  # instead of "Earlybird", enable this option.  However, those
   # binaries may not be distributed without permission from the
   # Mozilla Foundation, see
   # http://www.mozilla.org/foundation/trademarks/.
   enableOfficialBranding ? false
 }:
 
-let version = "38.1.0"; in
+let version = "45.2.0"; in
 let verName = "${version}"; in
 
 stdenv.mkDerivation rec {
   name = "thunderbird-${verName}";
 
   src = fetchurl {
-    url = "http://archive.mozilla.org/pub/thunderbird/releases/${verName}/source/thunderbird-${verName}.source.tar.bz2";
-
-    # https://archive.mozilla.org/pub/thunderbird/releases/${verName}/SHA1SUMS
-    sha1 = "7bb0c85e889e397e53dcbcbd36957dbd7c8c10bd";
+    url = "mirror://mozilla/thunderbird/releases/${verName}/source/thunderbird-${verName}.source.tar.xz";
+    sha256 = "1h1p14zswrg71qvzshwvw03mhicwwkfg29hvnj56cf41nb5qj8xx";
   };
 
-  buildInputs = # from firefox30Pkgs.xulrunner, but without gstreamer and libvpx
+  buildInputs = # from firefox30Pkgs.xulrunner, without gstreamer and libvpx
     [ pkgconfig which libpng gtk perl zip libIDL libjpeg zlib bzip2
-      python dbus dbus_glib pango freetype fontconfig xlibs.libXi
-      xlibs.libX11 xlibs.libXrender xlibs.libXft xlibs.libXt file
-      alsaLib nspr nss libnotify xlibs.pixman yasm mesa
-      xlibs.libXScrnSaver xlibs.scrnsaverproto pysqlite
-      xlibs.libXext xlibs.xextproto sqlite unzip makeWrapper
+      python dbus dbus_glib pango freetype fontconfig xorg.libXi
+      xorg.libX11 xorg.libXrender xorg.libXft xorg.libXt file
+      alsaLib nspr nss libnotify xorg.pixman yasm mesa
+      xorg.libXScrnSaver xorg.scrnsaverproto pysqlite
+      xorg.libXext xorg.xextproto sqlite unzip makeWrapper
       hunspell libevent libstartup_notification cairo icu
     ] ++ [ m4 ];
 
@@ -53,6 +51,7 @@ stdenv.mkDerivation rec {
       "--enable-system-pixman"
       "--enable-system-sqlite"
       "--enable-system-cairo"
+      "--disable-gconf"
       "--disable-gstreamer"
       "--enable-startup-notification"
       # "--enable-content-sandbox"            # available since 26.0, but not much info available
@@ -69,7 +68,7 @@ stdenv.mkDerivation rec {
                                "--enable-optimize" "--enable-strip" ])
     ++ [
       "--disable-javaxpcom"
-      "--enable-stdcxx-compat" # Avoid dependency on libstdc++ 4.7
+      #"--enable-stdcxx-compat" # Avoid dependency on libstdc++ 4.7
     ]
     ++ stdenv.lib.optional enableOfficialBranding "--enable-official-branding";
   in ''
@@ -91,6 +90,7 @@ stdenv.mkDerivation rec {
   '';
 
   enableParallelBuilding = true;
+  requiredSystemFeatures = [ "big-parallel" ];
 
   buildPhase =  "../mozilla/mach build";
 

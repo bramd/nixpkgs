@@ -11,24 +11,24 @@ in
 with stdenv.lib;
 stdenv.mkDerivation rec {
   name = "${type}krb5-${version}";
-  version = "1.13.2";
+  version = "1.14.2";
 
   src = fetchurl {
-    url = "${meta.homepage}dist/krb5/1.13/krb5-${version}-signed.tar";
-    sha256 = "1qbdzyrws7d0q4filsibh28z54pd5l987jr0ygv43iq9085w6a75";
+    url = "${meta.homepage}dist/krb5/1.14/krb5-${version}.tar.gz";
+    sha256 = "09wbv969ak4fqlqr1ip5bi62fny1zlp1vwjarvj6a6cdfzkdgjkb";
   };
+
+  configureFlags = optional stdenv.isFreeBSD ''WARN_CFLAGS=""'';
 
   nativeBuildInputs = [ pkgconfig perl yacc ]
     # Provides the mig command used by the build scripts
-    ++ stdenv.lib.optional stdenv.isDarwin bootstrap_cmds;
+    ++ optional stdenv.isDarwin bootstrap_cmds;
   buildInputs = [ openssl ]
     ++ optionals (!libOnly) [ openldap libedit ];
 
-  unpackPhase = ''
-    tar -xf $src
-    tar -xzf krb5-${version}.tar.gz
-    cd krb5-${version}/src
-  '';
+  patches = [ ./path_char_fix.patch ];
+
+  preConfigure = "cd ./src";
 
   buildPhase = optionalString libOnly ''
     (cd util; make -j $NIX_BUILD_CORES)

@@ -1,24 +1,24 @@
-{ stdenv, fetchgit, cmake, qt5, file, kde5}:
+{ stdenv, fetchgit, cmake, file, qtbase, qttools, qtx11extras, solid }:
 
 let
-  version = "git-2015-06-10";
+  version = "git-2016-01-10";
 in
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
   name = "dfilemanager-${version}";
   src = fetchgit {
     url = "git://git.code.sf.net/p/dfilemanager/code";
-    rev = "806a28aa8fed30941a2fd6784c7c9c240bca30e3";
-    sha256 = "1k15qzjmqg9ffv4cl809b071dpyckf8jspkhfhpbmfd9wasr0m7i";
+    rev = "2c5078b05e0ad74c037366be1ab3e6a03492bde4";
+    sha256 = "1qwhnlcc2j8sr1f3v63sxs3m7q7w1xy6c2jqsnznjgm23b5h3hxd";
   };
 
-  buildInputs = [ cmake qt5.base qt5.tools qt5.x11extras file kde5.solid];
+  buildInputs = [ cmake qtbase qttools file solid ];
 
   cmakeFlags = "-DQT5BUILD=true";
 
   meta = {
     homepage = "http://dfilemanager.sourceforge.net/";
     description = "File manager written in Qt/C++, it does use one library from kdelibs, the solid lib for easy device handling";
-    #license = stdenv.lib.licenses; # license not specified
+    license = stdenv.lib.licenses.gpl2;
     platforms = stdenv.lib.platforms.unix;
     maintainers = [ stdenv.lib.maintainers.eduarrrd ];
   };

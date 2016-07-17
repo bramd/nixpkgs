@@ -1,18 +1,13 @@
-/* moving all git tools into one attribute set because git is unlikely to be
- * referenced by other packages and you can get a fast overview.
-*/
-args: with args; with pkgs;
+/* All git-relates tools live here, in a separate attribute set so that users
+ * can get a fast overview over what's available.
+ */
+args @ {pkgs}: with args; with pkgs;
 let
-  inherit (pkgs) stdenv fetchgit fetchurl subversion;
-
-  gitBase = lib.makeOverridable (import ./git) {
-    inherit fetchurl stdenv curl openssl zlib expat perl python gettext gnugrep
-      asciidoc xmlto docbook2x docbook_xsl docbook_xml_dtd_45 libxslt cpio tcl
-      tk makeWrapper subversionClient gzip libiconv;
+  gitBase = callPackage ./git {
     texinfo = texinfo5;
-    svnSupport = false;		# for git-svn support
-    guiSupport = false;		# requires tcl/tk
-    sendEmailSupport = false;	# requires plenty of perl libraries
+    svnSupport = false;         # for git-svn support
+    guiSupport = false;         # requires tcl/tk
+    sendEmailSupport = false;   # requires plenty of perl libraries
     perlLibs = [perlPackages.LWP perlPackages.URI perlPackages.TermReadKey];
     smtpPerlLibs = [
       perlPackages.NetSMTP perlPackages.NetSMTPSSL
@@ -24,20 +19,13 @@ let
 
 in
 rec {
+  # Try to keep this generally alphabetized
 
-  # support for bugzilla
-  gitBz = import ./git-bz {
-    inherit fetchgit stdenv makeWrapper python asciidoc xmlto # docbook2x docbook_xsl docbook_xml_dtd_45 libxslt
-      ;
-    inherit (pythonPackages) pysqlite;
-  };
+  darcsToGit = callPackage ./darcs-to-git { };
+
+  diff-so-fancy = callPackage ./diff-so-fancy { };
 
   git = appendToName "minimal" gitBase;
-
-  # Git with SVN support, but without GUI.
-  gitSVN = lowPrio (appendToName "with-svn" (gitBase.override {
-    svnSupport = true;
-  }));
 
   # The full-featured Git.
   gitFull = gitBase.override {
@@ -46,67 +34,65 @@ rec {
     sendEmailSupport = !stdenv.isDarwin;
   };
 
-  inherit (pkgs.haskellPackages) git-annex;
+  # Git with SVN support, but without GUI.
+  gitSVN = lowPrio (appendToName "with-svn" (gitBase.override {
+    svnSupport = true;
+  }));
+
+  git-annex = pkgs.haskell.packages.lts.git-annex-with-assistant;
   gitAnnex = git-annex;
 
-  qgit = import ./qgit {
-    inherit fetchurl stdenv;
-    inherit (xlibs) libXext libX11;
-    qt = qt4;
-  };
+  git-annex-remote-b2 = callPackage ./git-annex-remote-b2 { };
 
-  qgitGit = import ./qgit/qgit-git.nix {
-    inherit fetchurl sourceFromHead stdenv;
-    inherit (xlibs) libXext libX11;
-    qt = qt4;
-  };
+  # support for bugzilla
+  git-bz = callPackage ./git-bz { };
 
-  stgit = import ./stgit {
-    inherit fetchurl stdenv python git;
-  };
+  git-cola = callPackage ./git-cola { };
 
-  topGit = lib.makeOverridable (import ./topgit) {
-    inherit stdenv fetchurl;
-  };
+  git-crypt = callPackage ./git-crypt { };
 
-  tig = callPackage ./tig { };
+  git-extras = callPackage ./git-extras { };
 
-  hub = import ./hub {
-    inherit go;
-    inherit stdenv fetchgit;
-    inherit (darwin) Security;
-  };
+  git-hub = callPackage ./git-hub { };
 
-  gitFastExport = import ./fast-export {
-    inherit fetchgit stdenv mercurial coreutils git makeWrapper subversion;
-  };
-
-  git2cl = import ./git2cl {
-    inherit fetchgit stdenv perl;
-  };
-
-  svn2git = import ./svn2git {
-    inherit stdenv fetchurl ruby makeWrapper;
-    git = gitSVN;
-  };
-
-  svn2git_kde = callPackage ./svn2git-kde { };
-
-  darcsToGit = callPackage ./darcs-to-git { };
-
-  gitflow = callPackage ./gitflow { };
+  git-imerge = callPackage ./git-imerge { };
 
   git-radar = callPackage ./git-radar { };
 
   git-remote-hg = callPackage ./git-remote-hg { };
 
+  git-stree = callPackage ./git-stree { };
+
+  git2cl = callPackage ./git2cl { };
+
+  gitFastExport = callPackage ./fast-export { };
+
   gitRemoteGcrypt = callPackage ./git-remote-gcrypt { };
 
-  git-extras = callPackage ./git-extras { };
+  gitflow = callPackage ./gitflow { };
 
-  git-cola = callPackage ./git-cola { };
+  hub = callPackage ./hub {
+    inherit (darwin) Security;
+  };
 
-  git-imerge = callPackage ./git-imerge { };
+  qgit = callPackage ./qgit { };
 
-  git-crypt = callPackage ./git-crypt { };
+  qgitGit = callPackage ./qgit/qgit-git.nix { };
+
+  stgit = callPackage ./stgit {
+  };
+
+  subgit = callPackage ./subgit { };
+
+  svn2git = callPackage ./svn2git {
+    git = gitSVN;
+  };
+
+  svn2git_kde = callPackage ./svn2git-kde { };
+
+  tig = callPackage ./tig { };
+
+  topGit = callPackage ./topgit { };
+
+  transcrypt = callPackage ./transcrypt { };
 }

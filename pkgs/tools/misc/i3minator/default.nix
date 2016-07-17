@@ -1,6 +1,6 @@
-{ stdenv, fetchurl, buildPythonPackage, pythonPackages, python }:
+{ stdenv, fetchurl, buildPythonApplication, pythonPackages, python }:
 
-buildPythonPackage rec {
+buildPythonApplication rec {
   name = "i3minator-${version}";
   version = "0.0.4";
 
@@ -20,7 +20,7 @@ buildPythonPackage rec {
     '';
     homepage = https://github.com/carlesso/i3minator;
     license = stdenv.lib.licenses.wtfpl;
-    maintainers = with maintainers; [ iElectric ];
+    maintainers = with maintainers; [ domenkozar ];
     platforms = stdenv.lib.platforms.linux;
   };
 

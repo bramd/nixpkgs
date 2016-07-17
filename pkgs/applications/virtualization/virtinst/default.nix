@@ -13,16 +13,16 @@ stdenv.mkDerivation rec {
   };
 
   pythonPath = with pythonPackages;
-    [ setuptools eventlet greenlet gflags netaddr sqlalchemy carrot routes
-      paste_deploy m2crypto ipy twisted sqlalchemy_migrate
-      distutils_extra simplejson readline glance cheetah lockfile httplib2
+    [ setuptools eventlet greenlet gflags netaddr carrot routes
+      PasteDeploy m2crypto ipy twisted
+      distutils_extra simplejson readline glanceclient cheetah lockfile httplib2
       # !!! should libvirt be a build-time dependency?  Note that
-      # libxml2Python is a dependency of libvirt.py. 
+      # libxml2Python is a dependency of libvirt.py.
       libvirt libxml2Python urlgrabber
     ];
 
   buildInputs =
-    [ pythonPackages.python 
+    [ pythonPackages.python
       pythonPackages.wrapPython
       pythonPackages.mox
       intltool

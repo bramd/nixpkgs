@@ -56,7 +56,7 @@ in
       */
 
       shellAliases = mkOption {
-        default = config.environment.shellAliases // { which = "type -P"; };
+        default = config.environment.shellAliases;
         description = ''
           Set of aliases for bash shell. See <option>environment.shellAliases</option>
           for an option format description.
@@ -90,12 +90,14 @@ in
 
       promptInit = mkOption {
         default = ''
-          # Provide a nice prompt.
-          PROMPT_COLOR="1;31m"
-          let $UID && PROMPT_COLOR="1;32m"
-          PS1="\n\[\033[$PROMPT_COLOR\][\u@\h:\w]\\$\[\033[0m\] "
-          if test "$TERM" = "xterm"; then
-            PS1="\[\033]2;\h:\u:\w\007\]$PS1"
+          # Provide a nice prompt if the terminal supports it.
+          if [ "$TERM" != "dumb" -o -n "$INSIDE_EMACS" ]; then
+            PROMPT_COLOR="1;31m"
+            let $UID && PROMPT_COLOR="1;32m"
+            PS1="\n\[\033[$PROMPT_COLOR\][\u@\h:\w]\\$\[\033[0m\] "
+            if test "$TERM" = "xterm"; then
+              PS1="\[\033]2;\h:\u:\w\007\]$PS1"
+            fi
           fi
         '';
         description = ''
@@ -198,7 +200,7 @@ in
     # Configuration for readline in bash.
     environment.etc."inputrc".source = ./inputrc;
 
-    users.defaultUserShell = mkDefault "/run/current-system/sw/bin/bash";
+    users.defaultUserShell = mkDefault pkgs.bashInteractive;
 
     environment.pathsToLink = optionals cfg.enableCompletion [
       "/etc/bash_completion.d"
