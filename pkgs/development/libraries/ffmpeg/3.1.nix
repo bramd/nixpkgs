@@ -1,7 +1,13 @@
-{ callPackage, ... } @ args:
+{ stdenv, callPackage
+# Darwin frameworks
+, Cocoa, CoreMedia
+, ...
+}@args:
 
 callPackage ./generic.nix (args // rec {
-  version = "${branch}.1";
+  version = "${branch}.4";
   branch = "3.1";
-  sha256 = "1d5knh87cgnla5zawy56gkrpb48qhyiq7i0pm8z9hyx3j05abg55";
+  sha256 = "1ynb1f0py5jb6hs78ypynpwc3jlqrw51vl8y1wnd44nwlisxz6bw";
+  darwinFrameworks = [ Cocoa CoreMedia ];
+  patches = stdenv.lib.optional stdenv.isDarwin ./sdk_detection.patch;
 })

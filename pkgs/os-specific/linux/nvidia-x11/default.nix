@@ -1,5 +1,5 @@
 { stdenv, fetchurl, kernel ? null, xorg, zlib, perl
-, gtk, atk, pango, glib, gdk_pixbuf, cairo, nukeReferences
+, gtk2, atk, pango, glib, gdk_pixbuf, cairo, nukeReferences
 , # Whether to build the libraries only (i.e. not the kernel module or
   # nvidia-settings).  Used to support 32-bit binaries on 64-bit
   # Linux.
@@ -12,15 +12,17 @@ assert (!libsOnly) -> kernel != null;
 
 let
 
-  versionNumber = "361.45.11";
+  versionNumber = "367.57";
 
   # Policy: use the highest stable version as the default (on our master).
   inherit (stdenv.lib) makeLibraryPath;
 
+  nameSuffix = optionalString (!libsOnly) "-${kernel.version}";
+
 in
 
 stdenv.mkDerivation {
-  name = "nvidia-x11-${versionNumber}${optionalString (!libsOnly) "-${kernel.version}"}";
+  name = "nvidia-x11-${versionNumber}${nameSuffix}";
 
   builder = ./builder.sh;
 
@@ -28,12 +30,12 @@ stdenv.mkDerivation {
     if stdenv.system == "i686-linux" then
       fetchurl {
         url = "http://download.nvidia.com/XFree86/Linux-x86/${versionNumber}/NVIDIA-Linux-x86-${versionNumber}.run";
-        sha256 = "036v7bzh9zy7zvaz2wf7zsamrynbg1yr1dll7sf1l928w059i6pb";
+        sha256 = "1fw87nvbf8dmy7clwmm7jwp842c78mkz9bcb060wbihsywkfkm23";
       }
     else if stdenv.system == "x86_64-linux" then
       fetchurl {
-        url = "http://download.nvidia.com/XFree86/Linux-x86_64/${versionNumber}/NVIDIA-Linux-x86_64-${versionNumber}-no-compat32.run";
-        sha256 = "1f8bxmf8cr3cgzxgap5ccb1yrqyrrdig19dp282y6z9xjq27l074";
+        url = "http://download.nvidia.com/XFree86/Linux-x86_64/${versionNumber}/NVIDIA-Linux-x86_64-${versionNumber}.run";
+        sha256 = "0lc87bgr29l9idhy2a4bsplkwx9r0dz9kjhcc5xq2xqkkyr5sqd1";
       }
     else throw "nvidia-x11 does not support platform ${stdenv.system}";
 
@@ -41,6 +43,8 @@ stdenv.mkDerivation {
   inherit (stdenv) system;
 
   kernel = if libsOnly then null else kernel.dev;
+
+  hardeningDisable = [ "pic" "format" ];
 
   dontStrip = true;
 
@@ -50,8 +54,10 @@ stdenv.mkDerivation {
   allLibPath  = makeLibraryPath [xorg.libXext xorg.libX11 xorg.libXrandr zlib stdenv.cc.cc];
 
   gtkPath = optionalString (!libsOnly) (makeLibraryPath
-    [ gtk atk pango glib gdk_pixbuf cairo ] );
+    [ gtk2 atk pango glib gdk_pixbuf cairo ] );
   programPath = makeLibraryPath [ xorg.libXv ];
+
+
 
   buildInputs = [ perl nukeReferences ];
 

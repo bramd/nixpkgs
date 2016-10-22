@@ -10,6 +10,7 @@ in
   imports = [
     ./afterstep.nix
     ./bspwm.nix
+    ./bspwm-unstable.nix
     ./compiz.nix
     ./dwm.nix
     ./exwm.nix
@@ -18,6 +19,7 @@ in
     ./i3.nix
     ./jwm.nix
     ./metacity.nix
+    ./mwm.nix
     ./openbox.nix
     ./pekwm.nix
     ./notion.nix

@@ -6,13 +6,13 @@
 { stdenv, fetchgit }:
 
 stdenv.mkDerivation rec {
-  name = "oh-my-zsh-git-${version}";
-  version = "2016-07-05";
+  name = "oh-my-zsh-${version}";
+  version = "2016-10-08";
 
   src = fetchgit {
     url = "https://github.com/robbyrussell/oh-my-zsh";
-    rev = "644bc641ad48c74c88631d79d48ec9b6f3f5a3e5";
-    sha256 = "1lmblfcd68pnc38bn6yjqs7sap5qinj37xv881a1rx4q0w38an07";
+    rev = "cd37d19ddaf9cc5acbf443f93f88ca355f74090d";
+    sha256 = "1vqgxbd09jhysjhp0xq48673xxry0xcs8mq2wrx5zs7chhq1w2y3";
   };
 
   phases = "installPhase";
@@ -31,7 +31,7 @@ stdenv.mkDerivation rec {
   chmod -R +w templates
 
   # Change the path to oh-my-zsh dir and disable auto-updating.
-  sed -i -e "2c\\ZSH=$outdir/" \
+  sed -i -e "s#ZSH=\$HOME/.oh-my-zsh#ZSH=$outdir#" \
          -e 's/\# \(DISABLE_AUTO_UPDATE="true"\)/\1/' \
    $template
 

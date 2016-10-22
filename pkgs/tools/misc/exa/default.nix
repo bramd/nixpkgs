@@ -6,7 +6,9 @@ buildRustPackage rec {
   name = "exa-${version}";
   version = "2016-04-20";
 
-  depsSha256 = "0dm8zaxy29pfbq68ysssab9i06sj4azgi3vib9617rklg7w3hdmk";
+  # NOTE: There is an impurity caused by `exa` depending on
+  # https://github.com/rust-datetime/zoneinfo-compiled.git
+  depsSha256 = "0qsqkgc1wxigvskhaamgfp5pyc2kprsikhcfccysgs07w44nxkd0";
 
   src = fetchFromGitHub {
     owner = "ogham";

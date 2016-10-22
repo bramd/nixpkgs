@@ -1,9 +1,9 @@
-{ lib, pythonPackages, fetchurl, libxslt, docbook5_xsl, openssh
+{ lib, python2Packages, fetchurl, libxslt, docbook5_xsl, openssh
 # version args
 , src, version
 }:
 
-pythonPackages.buildPythonApplication {
+python2Packages.buildPythonApplication {
   name = "nixops-${version}";
   namePrefix = "";
 
@@ -11,12 +11,18 @@ pythonPackages.buildPythonApplication {
 
   buildInputs = [ libxslt ];
 
-  pythonPath =
-    [ pythonPackages.prettytable
-      pythonPackages.boto
-      pythonPackages.sqlite3
-      pythonPackages.hetzner
-      pythonPackages.libcloud
+  pythonPath = with python2Packages;
+    [ prettytable
+      boto
+      sqlite3
+      hetzner
+      libcloud
+      azure-storage
+      azure-mgmt-compute
+      azure-mgmt-network
+      azure-mgmt-resource
+      azure-mgmt-storage
+      adal
     ];
 
   doCheck = false;

@@ -1,22 +1,31 @@
-{ stdenv, fetchurl, pkgconfig, efl, elementary, xcbutilkeysyms, libXrandr, libXdmcp, libxcb,
-libffi, pam, alsaLib, luajit, bzip2, libuuid, libpthreadstubs, gdbm, libcap, mesa_glu
-, xkeyboard_config }:
+{ stdenv, fetchurl, pkgconfig, efl, xcbutilkeysyms, libXrandr, libXdmcp,
+libxcb, libffi, pam, alsaLib, luajit, bzip2, libpthreadstubs, gdbm, libcap,
+mesa_glu , xkeyboard_config }:
 
 stdenv.mkDerivation rec {
   name = "enlightenment-${version}";
-  version = "0.21.0";
+  version = "0.21.3";
+
   src = fetchurl {
     url = "http://download.enlightenment.org/rel/apps/enlightenment/${name}.tar.xz";
-    sha256 = "0p85dmk9ysbf9y7vlc92z7495mh9l860xj3s8pspy9mscv3dnwg9";
+    sha256 = "1ljzcq775njhbcaj8vdnypf2rgc6yqqdwfkf7c22603qvv9if1dr";
   };
 
   nativeBuildInputs = [ pkgconfig ];
 
-  buildInputs = [ efl elementary libXdmcp libxcb
-    xcbutilkeysyms libXrandr libffi pam alsaLib luajit bzip2 libuuid
-    libpthreadstubs gdbm ] ++ stdenv.lib.optionals stdenv.isLinux [ libcap ];
+  buildInputs = [
+    efl libXdmcp libxcb xcbutilkeysyms libXrandr libffi pam alsaLib
+    luajit bzip2 libpthreadstubs gdbm
+  ] ++
+    stdenv.lib.optionals stdenv.isLinux [ libcap ];
 
-  NIX_CFLAGS_COMPILE = [ "-I${efl}/include/eo-1" "-I${efl}/include/emile-1" "-I${libuuid}/include/uuid" ];
+  NIX_CFLAGS_COMPILE = [
+    "-I${efl}/include/ecore-imf-1"
+    "-I${efl}/include/emile-1"
+    "-I${efl}/include/eo-1"
+    "-I${efl}/include/ethumb-1"
+    "-I${efl}/include/ethumb-client-1"
+  ];
 
   preConfigure = ''
     export USER_SESSION_DIR=$prefix/lib/systemd/user
@@ -42,11 +51,11 @@ stdenv.mkDerivation rec {
     ln -sv /var/setuid-wrappers/e_freqset $CPUFREQ_DIRPATH/freqset
   '';
 
-  meta = {
+  meta = with stdenv.lib; {
     description = "The Compositing Window Manager and Desktop Shell";
     homepage = http://enlightenment.org/;
-    maintainers = with stdenv.lib.maintainers; [ matejc tstrobel ftrvxmtrx ];
-    platforms = stdenv.lib.platforms.linux;
-    license = stdenv.lib.licenses.bsd2;
+    license = licenses.bsd2;
+    platforms = platforms.linux;
+    maintainers = with maintainers; [ matejc tstrobel ftrvxmtrx romildo ];
   };
 }

@@ -3,33 +3,11 @@
 with lib;
 
 let
-
   cfg = config.services.syncthing;
   defaultUser = "syncthing";
-
-  header = {
-    description = "Syncthing service";
-    environment = {
-      STNORESTART = "yes";
-      STNOUPGRADE = "yes";
-      inherit (cfg) all_proxy;
-    } // config.networking.proxy.envVars;
-  };
-
-  service = {
-    Restart = "on-failure";
-    SuccessExitStatus = "2 3 4";
-    RestartForceExitStatus="3 4";
-  };
-
-in
-
-{
-
+in {
   ###### interface
-
   options = {
-
     services.syncthing = {
 
       enable = mkEnableOption ''
@@ -37,6 +15,12 @@ in
         to Dropbox and Bittorrent Sync. Initial interface will be
         available on http://127.0.0.1:8384/.
       '';
+
+      useInotify = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Provide syncthing-inotify as a service.";
+      };
 
       systemService = mkOption {
         type = types.bool;
@@ -81,6 +65,19 @@ in
         '';
       };
 
+      openDefaultPorts = mkOption {
+        type = types.bool;
+        default = false;
+        example = literalExample "true";
+        description = ''
+          Open the default ports in the firewall:
+            - TCP 22000 for transfers
+            - UDP 21027 for discovery
+          If multiple users are running syncthing on this machine, you will need to manually open a set of ports for each instance and leave this disabled.
+          Alternatively, if are running only a single instance on this machine using the default ports, enable this.
+        '';
+      };
+
       package = mkOption {
         type = types.package;
         default = pkgs.syncthing;
@@ -98,6 +95,14 @@ in
 
   config = mkIf cfg.enable {
 
+    networking.firewall = mkIf cfg.openDefaultPorts {
+      allowedTCPPorts = [ 22000 ];
+      allowedUDPPorts = [ 21027 ];
+    };
+
+    systemd.packages = [ pkgs.syncthing ]
+                       ++ lib.optional cfg.useInotify pkgs.syncthing-inotify;
+
     users = mkIf (cfg.user == defaultUser) {
       extraUsers."${defaultUser}" =
         { group = cfg.group;
@@ -111,25 +116,43 @@ in
         config.ids.gids.syncthing;
     };
 
-    environment.systemPackages = [ cfg.package ];
-
-    systemd.services = mkIf cfg.systemService {
-      syncthing = header // {
+    systemd.services = {
+      syncthing = mkIf cfg.systemService {
+        description = "Syncthing service";
         after = [ "network.target" ];
+        environment = {
+          STNORESTART = "yes";
+          STNOUPGRADE = "yes";
+          inherit (cfg) all_proxy;
+        } // config.networking.proxy.envVars;
+        wants = mkIf cfg.useInotify [ "syncthing-inotify.service" ];
         wantedBy = [ "multi-user.target" ];
-        serviceConfig = service // {
+        serviceConfig = {
+          Restart = "on-failure";
+          SuccessExitStatus = "2 3 4";
+          RestartForceExitStatus="3 4";
           User = cfg.user;
           Group = cfg.group;
           PermissionsStartOnly = true;
           ExecStart = "${cfg.package}/bin/syncthing -no-browser -home=${cfg.dataDir}";
         };
       };
-    };
 
-    systemd.user.services =  {
-      syncthing = header // {
-        serviceConfig = service // {
-          ExecStart = "${cfg.package}/bin/syncthing -no-browser";
+      syncthing-resume = {
+        wantedBy = [ "suspend.target" ];
+      };
+
+      syncthing-inotify = mkIf (cfg.systemService && cfg.useInotify) {
+        description = "Syncthing Inotify File Watcher service";
+        after = [ "network.target" "syncthing.service" ];
+        requires = [ "syncthing.service" ];
+        wantedBy = [ "multi-user.target" ];
+        serviceConfig = {
+          SuccessExitStatus = "2";
+          RestartForceExitStatus = "3";
+          Restart = "on-failure";
+          User = cfg.user;
+          ExecStart = "${pkgs.syncthing-inotify.bin}/bin/syncthing-inotify -home=${cfg.dataDir} -logflags=0";
         };
       };
     };

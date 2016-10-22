@@ -1,16 +1,16 @@
-{ stdenv, fetchurl, pkgconfig, gtk, lua, perl, python
-, libtool, pciutils, dbus_glib, libcanberra, libproxy
+{ stdenv, fetchurl, pkgconfig, gtk2, lua, perl, python
+, libtool, pciutils, dbus_glib, libcanberra_gtk2, libproxy
 , libsexy, enchant, libnotify, openssl, intltool
 , desktop_file_utils, hicolor_icon_theme
 }:
 
 stdenv.mkDerivation rec {
-  version = "2.12.1";
+  version = "2.12.2";
   name = "hexchat-${version}";
 
   src = fetchurl {
     url = "http://dl.hexchat.net/hexchat/${name}.tar.xz";
-    sha256 = "0svwz9ldrry1sn35jywgpacjj1cf3xl3k74ynwn8rjvxs73b00aj";
+    sha256 = "1xnclfbrgbkqndxygi5f27q00jd7yy54jbd1061jmhxa6wzpibbd";
   };
 
   nativeBuildInputs = [
@@ -18,7 +18,7 @@ stdenv.mkDerivation rec {
   ];
 
   buildInputs = [
-    gtk lua perl python pciutils dbus_glib libcanberra libproxy
+    gtk2 lua perl python pciutils dbus_glib libcanberra_gtk2 libproxy
     libsexy libnotify openssl desktop_file_utils hicolor_icon_theme
   ];
 

@@ -154,7 +154,7 @@ let
 
   certtool = "${pkgs.gnutls.bin}/bin/certtool";
 
-  nixos-taskserver = pkgs.buildPythonPackage {
+  nixos-taskserver = pkgs.pythonPackages.buildPythonPackage {
     name = "nixos-taskserver";
     namePrefix = "";
 
@@ -534,6 +534,7 @@ in {
     (mkIf (cfg.enable && cfg.listenHost != "localhost") {
       networking.firewall.allowedTCPPorts = [ cfg.listenPort ];
     })
-    { meta.doc = ./taskserver.xml; }
   ];
+
+  meta.doc = ./doc.xml;
 }

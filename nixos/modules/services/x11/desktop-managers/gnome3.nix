@@ -25,9 +25,8 @@ let
     '';
   };
 
-  nixos-gsettings-desktop-schemas = pkgs.stdenv.mkDerivation {
-    name = "nixos-gsettings-desktop-schemas";
-    buildCommand = ''
+  nixos-gsettings-desktop-schemas = pkgs.runCommand "nixos-gsettings-desktop-schemas" {}
+    ''
      mkdir -p $out/share/gsettings-schemas/nixos-gsettings-overrides/glib-2.0/schemas
      cp -rf ${gnome3.gsettings_desktop_schemas}/share/gsettings-schemas/gsettings-desktop-schemas*/glib-2.0/schemas/*.xml $out/share/gsettings-schemas/nixos-gsettings-overrides/glib-2.0/schemas
 
@@ -46,7 +45,6 @@ let
 
      ${pkgs.glib.dev}/bin/glib-compile-schemas $out/share/gsettings-schemas/nixos-gsettings-overrides/glib-2.0/schemas/
     '';
-  };
 
 in {
 
@@ -84,7 +82,7 @@ in {
 
     environment.gnome3.packageSet = mkOption {
       default = null;
-      example = literalExample "pkgs.gnome3_18";
+      example = literalExample "pkgs.gnome3_20";
       description = "Which GNOME 3 package set to use.";
       apply = p: if p == null then pkgs.gnome3 else p;
     };
