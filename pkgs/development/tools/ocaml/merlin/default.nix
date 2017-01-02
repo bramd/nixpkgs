@@ -8,10 +8,10 @@ let
   then
     "2.3.1"
   else
-    "2.5.0";
+    "2.5.3";
   hashes = {
     "2.3.1" = "192jamcc7rmvadlqqsjkzsl6hlgwhg9my1qc89fxh1lmd4qdsrpn";
-    "2.5.0" = "1q09mnq4qmh6vfn45qxh2v81l364iazcpjs5dyczmlhln8b25bff";
+    "2.5.3" = "0qljklgcrpqdxzvcqj7b4785zcz322pjvw9cddbmzla33hagglha";
   };
 in
 

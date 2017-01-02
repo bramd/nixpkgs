@@ -1,53 +1,42 @@
 { stdenv, fetchurl
 , glibc
 , bzip2
-, db
 , gdbm
-, libX11, xproto
 , lzma
 , ncurses
 , openssl
 , readline
 , sqlite
-, tcl, tk
+, tcl ? null, tk ? null, libX11 ? null, xproto ? null, x11Support ? false
 , zlib
 , callPackage
 , self
-, python36Packages
-
 , CF, configd
+# For the Python package set
+, pkgs, packageOverrides ? (self: super: {})
 }:
 
-assert readline != null -> ncurses != null;
-
+assert x11Support -> tcl != null
+                  && tk != null
+                  && xproto != null
+                  && libX11 != null;
 with stdenv.lib;
 
 let
   majorVersion = "3.6";
   minorVersion = "0";
-  minorVersionSuffix = "b2";
+  minorVersionSuffix = "";
   pythonVersion = majorVersion;
   version = "${majorVersion}.${minorVersion}${minorVersionSuffix}";
   libPrefix = "python${majorVersion}";
+  sitePackages = "lib/${libPrefix}/site-packages";
 
   buildInputs = filter (p: p != null) [
-    glibc
-    zlib
-    bzip2
-    lzma
-    gdbm
-    sqlite
-    db
-    readline
-    ncurses
-    openssl
-    tcl
-    tk
-    libX11
-    xproto
-  ] ++ optionals stdenv.isDarwin [ CF configd ];
-in
-stdenv.mkDerivation {
+    zlib bzip2 lzma gdbm sqlite readline ncurses openssl ]
+    ++ optionals x11Support [ tcl tk libX11 xproto ]
+    ++ optionals stdenv.isDarwin [ CF configd ];
+
+in stdenv.mkDerivation {
   name = "python3-${version}";
   pythonVersion = majorVersion;
   inherit majorVersion version;
@@ -56,7 +45,7 @@ stdenv.mkDerivation {
 
   src = fetchurl {
     url = "https://www.python.org/ftp/python/${majorVersion}.${minorVersion}/Python-${version}.tar.xz";
-    sha256 = "1sk990n2xm5vhn3ys2cp427dx0z14cx3sz1za5f2fcwrp524bz9s";
+    sha256 = "08inlbb2vb8lahw6wfq654lqk6l1x7ncpggp6a92vqw5yq2gkidh";
   };
 
   NIX_LDFLAGS = optionalString stdenv.isLinux "-lgcc_s";
@@ -101,23 +90,27 @@ stdenv.mkDerivation {
 
     # Python on Nix is not manylinux1 compatible. https://github.com/NixOS/nixpkgs/issues/18484
     echo "manylinux1_compatible=False" >> $out/lib/${libPrefix}/_manylinux.py
+
+    # Use Python3 as default python
+    ln -s "$out/bin/idle3" "$out/bin/idle"
+    ln -s "$out/bin/pip3" "$out/bin/pip"
+    ln -s "$out/bin/pydoc3" "$out/bin/pydoc"
+    ln -s "$out/bin/python3" "$out/bin/python"
+    ln -s "$out/bin/python3-config" "$out/bin/python-config"
+    ln -s "$out/lib/pkgconfig/python3.pc" "$out/lib/pkgconfig/python.pc"
   '';
 
-  passthru = rec {
-    inherit libPrefix;
-    zlibSupport = zlib != null;
-    sqliteSupport = sqlite != null;
-    dbSupport = db != null;
-    readlineSupport = readline != null;
-    opensslSupport = openssl != null;
-    tkSupport = (tk != null) && (tcl != null) && (libX11 != null) && (xproto != null);
+  passthru = let
+    pythonPackages = callPackage ../../../../../top-level/python-packages.nix {python=self; overrides=packageOverrides;};
+  in rec {
+    inherit libPrefix sitePackages x11Support;
     executable = "${libPrefix}m";
     buildEnv = callPackage ../../wrapper.nix { python = self; };
-    withPackages = import ../../with-packages.nix { inherit buildEnv; pythonPackages = python36Packages; };
+    withPackages = import ../../with-packages.nix { inherit buildEnv pythonPackages;};
+    pkgs = pythonPackages;
     isPy3 = true;
     isPy35 = true;
     is_py3k = true;  # deprecated
-    sitePackages = "lib/${libPrefix}/site-packages";
     interpreter = "${self}/bin/${executable}";
   };
 

@@ -1,5 +1,5 @@
 { stdenv, fetchurl, pkgconfig
-, bzip2, curl, expat, libarchive, xz, zlib
+, bzip2, curl, expat, libarchive, xz, zlib, libuv
 , useNcurses ? false, ncurses, useQt4 ? false, qt4
 , wantPS ? false, ps ? null
 }:
@@ -7,11 +7,13 @@
 with stdenv.lib;
 
 assert wantPS -> (ps != null);
+assert stdenv ? cc;
+assert stdenv.cc ? libc;
 
 let
   os = stdenv.lib.optionalString;
-  majorVersion = "3.6";
-  minorVersion = "0";
+  majorVersion = "3.7";
+  minorVersion = "1";
   version = "${majorVersion}.${minorVersion}";
 in
 
@@ -22,13 +24,12 @@ stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "${meta.homepage}files/v${majorVersion}/cmake-${version}.tar.gz";
-    sha256 = "0w3n2i02jpbgai4dxsigm1c1i1qb5v70wyxckzwrxvs0ri0fs1gx";
+    # from https://cmake.org/files/v3.7/cmake-3.7.1-SHA-256.txt
+    sha256 = "449a5bce64dbd4d5b9517ebd1a1248ed197add6ad27934478976fd5f1f9330e1";
   };
 
-  patches =
-    # Don't search in non-Nix locations such as /usr, but do search in
-    # Nixpkgs' Glibc.
-    optional (stdenv ? glibc) ./search-path-3.2.patch
+  # Don't search in non-Nix locations such as /usr, but do search in our libc.
+  patches = [ ./search-path-3.2.patch ]
     ++ optional stdenv.isCygwin ./3.2.2-cygwin.patch;
 
   outputs = [ "out" ];
@@ -37,21 +38,21 @@ stdenv.mkDerivation rec {
   setupHook = ./setup-hook.sh;
 
   buildInputs =
-    [ setupHook pkgconfig bzip2 curl expat libarchive xz zlib ]
+    [ setupHook pkgconfig bzip2 curl expat libarchive xz zlib libuv ]
     ++ optional useNcurses ncurses
     ++ optional useQt4 qt4;
 
   propagatedBuildInputs = optional wantPS ps;
 
-  preConfigure = with stdenv; optionalString (stdenv ? glibc)
-    ''
+  preConfigure = with stdenv; ''
       fixCmakeFiles .
       substituteInPlace Modules/Platform/UnixPaths.cmake \
-        --subst-var-by glibc_bin ${getBin glibc} \
-        --subst-var-by glibc_dev ${getDev glibc} \
-        --subst-var-by glibc_lib ${getLib glibc}
+        --subst-var-by libc_bin ${getBin cc.libc} \
+        --subst-var-by libc_dev ${getDev cc.libc} \
+        --subst-var-by libc_lib ${getLib cc.libc}
       substituteInPlace Modules/FindCxxTest.cmake \
         --replace "$""{PYTHON_EXECUTABLE}" ${stdenv.shell}
+      configureFlags="--parallel=''${NIX_BUILD_CORES:-1} $configureFlags"
     '';
   configureFlags =
     [ "--docdir=share/doc/${name}"
