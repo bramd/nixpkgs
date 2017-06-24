@@ -1,27 +1,34 @@
-{ stdenv, callPackage, rustPlatform,
-  targets ? [], targetToolchains ? [], targetPatches ? [] }:
+{ stdenv, callPackage, rustPlatform, llvm, fetchurl
+, targets ? []
+, targetToolchains ? []
+, targetPatches ? []
+}:
 
 rec {
   rustc = callPackage ./rustc.nix {
-    shortVersion = "nightly-2016-11-23";
-    forceBundledLLVM = false;
+    inherit llvm targets targetPatches targetToolchains rustPlatform;
+
+    version = "nightly-2017-05-30";
+
     configureFlags = [ "--release-channel=nightly" ];
-    srcRev = "d5814b03e652043be607f96e24709e06c2b55429";
-    srcSha = "0x2vr1mda0mr8q28h96zfpv0f26dyrg8jwxznlh6gk0y0mprgcbr";
+
+    src = fetchurl {
+      url = "https://static.rust-lang.org/dist/2017-05-30/rustc-nightly-src.tar.gz";
+      sha256 = "90ce76db56a93f1b4532f2e62bbf12c243c4d156662b0d80c25319211ee7d0e0";
+    };
+
     patches = [
-     ./patches/disable-lockfile-check-nightly.patch
+      ./patches/darwin-disable-fragile-tcp-tests.patch
     ] ++ stdenv.lib.optional stdenv.needsPax ./patches/grsec.patch;
-    inherit targets;
-    inherit targetPatches;
-    inherit targetToolchains;
-    inherit rustPlatform;
+
+    doCheck = false;
   };
 
   cargo = callPackage ./cargo.nix rec {
-    version = "nightly-2016-07-25";
-    srcRev = "f09ef68cc47956ccc5f99212bdcdd15298c400a0";
-    srcSha = "1r6q9jd0fl6mzhwkvrrcv358q2784hg51dfpy28xgh4n61m7c155";
-    depsSha256 = "055ky0lkrcsi976kmvc4lqyv0sjdpcj3jv36kz9hkqq0gip3crjc";
+    version = "0.18.0";
+    srcRev = "fe7b0cdcf5ca7aab81630706ce40b70f6aa2e666";
+    srcSha = "164iywv1l3v87b0pznf5kkzxigd6w19myv9d7ka4c65zgrk9n9px";
+    depsSha256 = "1mrgd8ib48vxxbhkvsqqq4p19sc6b74x3cd8p6lhhlm6plrajrvm";
 
     inherit rustc; # the rustc that will be wrapped by cargo
     inherit rustPlatform; # used to build cargo

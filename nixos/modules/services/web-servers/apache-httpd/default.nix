@@ -16,7 +16,7 @@ let
 
   phpMajorVersion = head (splitString "." php.version);
 
-  mod_perl = pkgs.mod_perl.override { apacheHttpd = httpd; };
+  mod_perl = pkgs.apacheHttpdPackages.mod_perl.override { apacheHttpd = httpd; };
 
   defaultListen = cfg: if cfg.enableSSL
     then [{ip = "*"; port = 443;}]
@@ -63,6 +63,8 @@ let
       let
         svcFunction =
           if svc ? function then svc.function
+          # instead of using serviceType="mediawiki"; you can copy mediawiki.nix to any location outside nixpkgs, modify it at will, and use serviceExpression=./mediawiki.nix;
+          else if svc ? serviceExpression then import (toString svc.serviceExpression)
           else import (toString "${toString ./.}/${if svc ? serviceType then svc.serviceType else svc.serviceName}.nix");
         config = (evalModules
           { modules = [ { options = res.options; config = svc.config or svc; } ];
@@ -708,13 +710,6 @@ in
               [ $(id -u) != 0 ] || chown root.${mainCfg.group} "${mainCfg.stateDir}/runtime"
             ''}
             mkdir -m 0700 -p ${mainCfg.logDir}
-
-            ${optionalString (mainCfg.documentRoot != null)
-            ''
-              # Create the document root directory if does not exists yet
-              mkdir -p ${mainCfg.documentRoot}
-            ''
-            }
 
             # Get rid of old semaphores.  These tend to accumulate across
             # server restarts, eventually preventing it from restarting

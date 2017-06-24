@@ -1,8 +1,9 @@
-{ stdenv, lib, fetchurl, glibc, musl
+{ stdenv, lib, buildPackages, fetchurl
 , enableStatic ? false
 , enableMinimal ? false
-, useMusl ? false
+, useMusl ? false, musl
 , extraConfig ? ""
+, buildPlatform, hostPlatform
 }:
 
 let
@@ -26,11 +27,11 @@ let
 in
 
 stdenv.mkDerivation rec {
-  name = "busybox-1.25.1";
+  name = "busybox-1.26.2";
 
   src = fetchurl {
     url = "http://busybox.net/downloads/${name}.tar.bz2";
-    sha256 = "0bm0l8xdjdz3kdyajp8wg27yamsw7r2y88nnrxwvvz984c7pwri7";
+    sha256 = "05mg6rh5smkzfwqfcazkpwy6h6555llsazikqnvwkaf17y8l8gns";
   };
 
   hardeningDisable = [ "format" ] ++ lib.optional enableStatic [ "fortify" ];
@@ -71,20 +72,16 @@ stdenv.mkDerivation rec {
   '';
 
   postConfigure = lib.optionalString useMusl ''
-    makeFlagsArray+=("CC=gcc -isystem ${musl}/include -B${musl}/lib -L${musl}/lib")
+    makeFlagsArray+=("CC=${stdenv.cc.prefix}gcc -isystem ${musl}/include -B${musl}/lib -L${musl}/lib")
   '';
+
+  nativeBuildInputs = lib.optional (hostPlatform != buildPlatform) buildPackages.stdenv.cc;
 
   buildInputs = lib.optionals (enableStatic && !useMusl) [ stdenv.cc.libc stdenv.cc.libc.static ];
 
-  crossAttrs = {
-    extraCrossConfig = ''
-      CONFIG_CROSS_COMPILER_PREFIX "${stdenv.cross.config}-"
-    '';
-
-    postConfigure = stdenv.lib.optionalString useMusl ''
-      makeFlagsArray+=("CC=$crossConfig-gcc -isystem ${musl.crossDrv}/include -B${musl.crossDrv}/lib -L${musl.crossDrv}/lib")
-    '';
-  };
+  extraCrossConfig = if hostPlatform == buildPlatform then null else ''
+    CONFIG_CROSS_COMPILER_PREFIX "${stdenv.cc.prefix}"
+  '';
 
   enableParallelBuilding = true;
 

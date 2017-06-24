@@ -1,27 +1,51 @@
-{ stdenv, fetchFromGitHub, rustPlatform, openssl, cmake, zlib }:
+{ stdenv, fetchFromGitHub, rustPlatform, cmake, perl, pkgconfig, zlib }:
 
 with rustPlatform;
 
-buildRustPackage rec {
+let
+  # check for updates
+  zoneinfo_compiled = fetchFromGitHub {
+    owner = "rust-datetime";
+    repo = "zoneinfo-compiled";
+    rev = "f56921ea5e9f7cf065b1480ff270a1757c1f742f";
+    sha256 = "1xmw7c5f5n45lkxnyxp4llfv1bnqhc876w98165ccdbbiylfkw26";
+  };
+  cargoPatch = ''
+    # use non-git dependencies
+    patch Cargo.toml <<EOF
+    46c46
+    < git = "https://github.com/rust-datetime/zoneinfo-compiled.git"
+    ---
+    > path = "${zoneinfo_compiled}"
+    EOF
+  '';
+in buildRustPackage rec {
   name = "exa-${version}";
-  version = "2016-04-20";
+  version = "0.6.0";
 
-  # NOTE: There is an impurity caused by `exa` depending on
-  # https://github.com/rust-datetime/zoneinfo-compiled.git
-  depsSha256 = "0qsqkgc1wxigvskhaamgfp5pyc2kprsikhcfccysgs07w44nxkd0";
+  depsSha256 = "0c1vyl1c67xq18ss0xs5cjdfn892jpwj6ml51dfppzfyns3namm4";
 
   src = fetchFromGitHub {
     owner = "ogham";
     repo = "exa";
-    rev = "110a1c716bfc4a7f74f74b3c4f0a881c773fcd06";
-    sha256 = "136yxi85m50vwmqinr1wnd0h29n5yjykqqqk9ibbcmmhx8sqhjzf";
+    rev = "v${version}";
+    sha256 = "0065gj4pbbppbnwp23s6bb7zlz428nrir00d0kz7axydxk6swhyv";
   };
 
-  nativeBuildInputs = [ cmake ];
-  buildInputs = [ openssl zlib ];
+  nativeBuildInputs = [ cmake pkgconfig perl ];
+  buildInputs = [ zlib ];
 
   # Some tests fail, but Travis ensures a proper build
   doCheck = false;
+
+  cargoUpdateHook = ''
+    ${cargoPatch}
+  '';
+  cargoDepsHook = ''
+    pushd $sourceRoot
+    ${cargoPatch}
+    popd
+  '';
 
   meta = with stdenv.lib; {
     description = "Replacement for 'ls' written in Rust";
@@ -33,9 +57,8 @@ buildRustPackage rec {
       for a directory, or recursing into directories with a tree view. exa is
       written in Rust, so it’s small, fast, and portable.
     '';
-    homepage = http://bsago.me/exa;
+    homepage = http://the.exa.website;
     license = licenses.mit;
     maintainer = [ maintainers.ehegnes ];
-    broken = true;
   };
 }

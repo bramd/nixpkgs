@@ -1,5 +1,5 @@
 { stdenv, fetchurl, pkgconfig, which
-, boost, libtorrentRasterbar, qmakeHook, qt5
+, boost, libtorrentRasterbar, qmake, qtbase, qttools
 , debugSupport ? false # Debugging
 , guiSupport ? true, dbus_libs ? null # GUI (disable to run headless)
 , webuiSupport ? true # WebUI
@@ -10,16 +10,16 @@ assert guiSupport -> (dbus_libs != null);
 with stdenv.lib;
 stdenv.mkDerivation rec {
   name = "qbittorrent-${version}";
-  version = "3.3.7";
+  version = "3.3.12";
 
   src = fetchurl {
     url = "mirror://sourceforge/qbittorrent/${name}.tar.xz";
-    sha256 = "0h2ccqmjnm0x0qjvd0vz5hk7dy9qbqhiqvxywqjhip7sj1585p3j";
+    sha256 = "0vs626khavhqqnq2hrwrxyc8ihbngharcf1fd37nwccvy13qqljn";
   };
 
-  nativeBuildInputs = [ pkgconfig which ];
+  nativeBuildInputs = [ pkgconfig which qmake ];
 
-  buildInputs = [ boost libtorrentRasterbar qt5.qtbase qt5.qttools ]
+  buildInputs = [ boost libtorrentRasterbar qtbase qttools ]
     ++ optional guiSupport dbus_libs;
 
   preConfigure = ''
@@ -43,7 +43,7 @@ stdenv.mkDerivation rec {
     description = "Free Software alternative to µtorrent";
     homepage    = http://www.qbittorrent.org/;
     license     = licenses.gpl2;
-    maintainers = with maintainers; [ viric ];
     platforms   = platforms.linux;
+    maintainers = with maintainers; [ viric ];
   };
 }

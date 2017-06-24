@@ -2,7 +2,7 @@
 
 stdenv.mkDerivation rec {
   name = "firmware-linux-nonfree-${version}";
-  version = "2016-07-12";
+  version = "2017-04-16";
 
   # This repo is built by merging the latest versions of
   # http://git.kernel.org/cgit/linux/kernel/git/firmware/linux-firmware.git/
@@ -12,10 +12,10 @@ stdenv.mkDerivation rec {
   # the usual set of firmware. firmware/linux-firmware usually lags kernel releases
   # so iwlwifi cards will fail to load on newly released kernels.
   src = fetchFromGitHub {
-    owner = "wkennington";
+    owner = "fpletz";
     repo = "linux-firmware";
-    rev = "cccb6a0da98372bd66787710249727ad6b0aaf72";
-    sha256 = "1c7h8i37nbyy37zqhybxd3y6aqabfv4nrdkjg789w67mdnn6hka0";
+    rev = version;
+    sha256 = "0ar29vjjpsw7r7pqqa8b0jxx03k230cn7x8fkqi23bj68bd9x5pc";
   };
 
   preInstall = ''

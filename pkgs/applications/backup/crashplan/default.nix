@@ -1,18 +1,14 @@
 { stdenv, fetchurl, makeWrapper, jre, cpio, gawk, gnugrep, gnused, procps, swt, gtk2, glib, libXtst }:
 
-let
-  version = "4.8.0";
+stdenv.mkDerivation rec {
+  version = "4.8.2";
   rev = "1"; #tracks unversioned changes that occur on download.code42.com from time to time
-
-in stdenv.mkDerivation rec {
   name = "crashplan-${version}-r${rev}";
 
-  crashPlanArchive = fetchurl {
+  src = fetchurl {
     url = "https://download.code42.com/installs/linux/install/CrashPlan/CrashPlan_${version}_Linux.tgz";
-    sha256 = "117k9yx10n4lc0hkx0j48f19km0jrdgfq6xmbmhv3v73zbx21axs";
+    sha256 = "0wh8lcm06ilcyncnp4ckg4yhyf9z3gb6v1kr111j4bpgmnd0v1yf";
   };
-
-  srcs = [ crashPlanArchive ];
 
   meta = with stdenv.lib; {
     description = "An online/offline backup solution";

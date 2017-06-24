@@ -1,6 +1,6 @@
 {
-  stdenv, lib, fetchurl,
-  gettext, makeQtWrapper, pkgconfig,
+  mkDerivation, lib, fetchurl,
+  gettext, pkgconfig,
   qtbase,
   alsaLib, curl, faad2, ffmpeg, flac, fluidsynth, gdk_pixbuf, lame, libbs2b,
   libcddb, libcdio082, libcue, libjack2, libmad, libmcs, libmms, libmodplug,
@@ -10,30 +10,28 @@
 }:
 
 let
-  version = "3.8.1";
+  version = "3.8.2";
   sources = {
     "audacious-${version}" = fetchurl {
       url = "http://distfiles.audacious-media-player.org/audacious-${version}.tar.bz2";
-      sha256 = "1k9blmgqia0df18l39bd2bbcwmjfxak6bd286vcd9zzmjhqs4qdc";
+      sha256 = "14xyvmxdax0aj1gqcz8z23cjcavsysyh6b3lkiczkv4vrqf4gwdx";
     };
 
     "audacious-plugins-${version}" = fetchurl {
       url = "http://distfiles.audacious-media-player.org/audacious-plugins-${version}.tar.bz2";
-      sha256 = "0f16ivcp8nd83r781hnw1qgbs9hi2b2v22zwv7c3sw3jq1chb70h";
+      sha256 = "1m7xln93zc4qvb1fi83icyd5x2r6azqlvs5nigjz8az3l2kzrknp";
     };
   };
 in
 
-stdenv.mkDerivation {
+mkDerivation {
   inherit version;
-  name = "audacious-${version}";
+  name = "audacious-qt5-${version}";
 
   sourceFiles = lib.attrValues sources;
   sourceRoots = lib.attrNames sources;
 
-  nativeBuildInputs = [
-    gettext makeQtWrapper pkgconfig
-  ];
+  nativeBuildInputs = [ gettext pkgconfig ];
 
   buildInputs = [
     # Core dependencies
@@ -68,15 +66,9 @@ stdenv.mkDerivation {
       fi
 
     done
-
-    source $stdenv/setup
-    wrapQtProgram $out/bin/audacious
-    wrapQtProgram $out/bin/audtool
   '';
 
-  enableParallelBuilding = true;
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Audio player";
     homepage = http://audacious-media-player.org/;
     maintainers = with maintainers; [ ttuegel ];

@@ -1,31 +1,38 @@
 { stdenv, lib, callPackage, fetchurl, unzip, atomEnv, makeDesktopItem,
-  makeWrapper, libXScrnSaver }:
+  makeWrapper, libXScrnSaver, libxkbfile }:
 
 let
-  version = "1.8.0";
-  rev = "38746938a4ab94f2f57d9e1309c51fd6fb37553d";
+  version = "1.13.0";
+  channel = "stable";
 
-  sha256 = if stdenv.system == "i686-linux"    then "0p7r1i71v2ab4dzlwh43hqih958a31cqskf64ds4vgc35x2mfjcq"
-      else if stdenv.system == "x86_64-linux"  then "1k15701jskk7w5kwzlzfri96vvw7fcinyfqqafls8nms8h5csv76"
-      else if stdenv.system == "x86_64-darwin" then "12fqz62gs2wcg2wwx1k6gv2gqil9c54yq254vk3rqdf82q9zyapk"
-      else throw "Unsupported system: ${stdenv.system}";
+  plat = {
+    "i686-linux" = "linux-ia32";
+    "x86_64-linux" = "linux-x64";
+    "x86_64-darwin" = "darwin";
+  }.${stdenv.system};
 
-  urlBase = "https://az764295.vo.msecnd.net/stable/${rev}/";
+  sha256 = {
+    "i686-linux" = "069pv0w8yhsv50glpcxzypsjc7mxmrcrv25c75rnv43yiyamjvyi";
+    "x86_64-linux" = "0cjkkvd5rs82yji0kpnbvzgwz5qvh9x6bmjd51rrvjz84dbwhgzq";
+    "x86_64-darwin" = "1qbxv5drqrx9k835a6zj3kkbh4sga5r9y0gf9bq16g3gf0dd9bwq";
+  }.${stdenv.system};
 
-  urlStr = if stdenv.system == "i686-linux" then
-        urlBase + "code-stable-code_${version}-1481650382_i386.tar.gz"
-      else if stdenv.system == "x86_64-linux" then
-        urlBase + "code-stable-code_${version}-1481651903_amd64.tar.gz"
-      else if stdenv.system == "x86_64-darwin" then
-        urlBase + "VSCode-darwin-stable.zip"
-      else throw "Unsupported system: ${stdenv.system}";
+  archive_fmt = if stdenv.system == "x86_64-darwin" then "zip" else "tar.gz";
+
+  rpath = lib.concatStringsSep ":" [
+    atomEnv.libPath
+    "${lib.makeLibraryPath [libXScrnSaver]}/libXss.so.1"
+    "${lib.makeLibraryPath [libxkbfile]}/libxkbfile.so.1"
+    "$out/lib/vscode"
+  ];
+
 in
   stdenv.mkDerivation rec {
     name = "vscode-${version}";
-    inherit version;
 
     src = fetchurl {
-      url = urlStr;
+      name = "VSCode_${version}_${plat}.${archive_fmt}";
+      url = "https://vscode-update.azurewebsites.net/${version}/${plat}/${channel}";
       inherit sha256;
     };
 
@@ -33,10 +40,7 @@ in
       name = "code";
       exec = "code";
       icon = "code";
-      comment = ''
-        Code editor redefined and optimized for building and debugging modern
-        web and cloud applications
-      '';
+      comment = "Code editor redefined and optimized for building and debugging modern web and cloud applications";
       desktopName = "Visual Studio Code";
       genericName = "Text Editor";
       categories = "GNOME;GTK;Utility;TextEditor;Development;";
@@ -44,28 +48,30 @@ in
 
     buildInputs = if stdenv.system == "x86_64-darwin"
       then [ unzip makeWrapper libXScrnSaver ]
-      else [ makeWrapper libXScrnSaver ];
+      else [ makeWrapper libXScrnSaver libxkbfile ];
 
-    installPhase = ''
-      mkdir -p $out/lib/vscode $out/bin
-      cp -r ./* $out/lib/vscode
-      ln -s $out/lib/vscode/code $out/bin
+    installPhase =
+      if stdenv.system == "x86_64-darwin" then ''
+        mkdir -p $out/lib/vscode $out/bin
+        cp -r ./* $out/lib/vscode
+        ln -s $out/lib/vscode/Contents/Resources/app/bin/code $out/bin
+      '' else ''
+        mkdir -p $out/lib/vscode $out/bin
+        cp -r ./* $out/lib/vscode
+        ln -s $out/lib/vscode/bin/code $out/bin
 
-      mkdir -p $out/share/applications
-      cp $desktopItem/share/applications/* $out/share/applications
+        mkdir -p $out/share/applications
+        cp $desktopItem/share/applications/* $out/share/applications
 
-      mkdir -p $out/share/pixmaps
-      cp $out/lib/vscode/resources/app/resources/linux/code.png $out/share/pixmaps/code.png
-    '';
+        mkdir -p $out/share/pixmaps
+        cp $out/lib/vscode/resources/app/resources/linux/code.png $out/share/pixmaps/code.png
+      '';
 
     postFixup = lib.optionalString (stdenv.system == "i686-linux" || stdenv.system == "x86_64-linux") ''
       patchelf \
         --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
-        --set-rpath "${atomEnv.libPath}:$out/lib/vscode" \
+        --set-rpath "${rpath}" \
         $out/lib/vscode/code
-
-      wrapProgram $out/bin/code \
-        --prefix LD_PRELOAD : ${stdenv.lib.makeLibraryPath [ libXScrnSaver ]}/libXss.so.1
     '';
 
     meta = with stdenv.lib; {

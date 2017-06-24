@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, makeWrapper, opencl-headers, opencl-icd }:
+{ stdenv, fetchurl, makeWrapper, opencl-headers, ocl-icd }:
 
 assert stdenv.isLinux;
 
@@ -18,11 +18,13 @@ stdenv.mkDerivation rec {
 
   # $out is not known until the build has started.
   configurePhase = ''
+    runHook preConfigure
     makeFlags="$makeFlags PREFIX=$out"
+    runHook postConfigure
   '';
 
   postFixup = ''
-    wrapProgram $out/bin/hashcat --prefix LD_LIBRARY_PATH : ${opencl-icd}/lib
+    wrapProgram $out/bin/hashcat --prefix LD_LIBRARY_PATH : ${ocl-icd}/lib
   '';
 
   meta = {

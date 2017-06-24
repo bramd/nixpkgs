@@ -1,13 +1,18 @@
-{ buildRubyGem, lib, bundler, ruby, nix, nix-prefetch-git }:
+{ buildRubyGem, fetchFromGitHub, lib, bundler, ruby, nix, nix-prefetch-git }:
 
 buildRubyGem rec {
   inherit ruby;
 
   name = "${gemName}-${version}";
   gemName = "bundix";
-  version = "2.0.8";
+  version = "2.2.0";
 
-  sha256 = "0ikpf2g01izadjpdnc4k2rb9v4g11f1jk2y5alxc7n7rxjkwdc66";
+  src = fetchFromGitHub {
+    owner = "manveru";
+    repo = "bundix";
+    rev = version;
+    sha256 = "0lnzkwxprdz73axk54y5p5xkw56n3lra9v2dsvqjfw0ab66ld0iy";
+  };
 
   buildInputs = [bundler];
 
