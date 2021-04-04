@@ -51,6 +51,7 @@ stdenv.mkDerivation rec {
 
   preConfigure = ''
     substituteInPlace configure --replace /sbin/ldconfig ldconfig
+    sed "s/^BRLAPI_ETCDIR='.*'$/BRLAPI_ETCDIR='\/etc'/g" -i configure
 
     # Some script needs a working tclsh shebang
     patchShebangs .
